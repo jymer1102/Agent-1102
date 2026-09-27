@@ -1,5 +1,5 @@
 // Easter egg — background (horizontal / vertical banner)
-  let easterActive = localStorage.getItem("nova_easter") === "true";
+  let easterActive = localStorage.getItem("agent1102_easter") === "true";
   const easterBtn = document.createElement("button");
   easterBtn.className = "icon-btn"; easterBtn.title = "Toggle background"; easterBtn.innerHTML = '<i class="fa-solid fa-image"></i>'; easterBtn.style.display = easterActive ? "block" : "none";
   headerBtns.prepend(easterBtn);
@@ -22,7 +22,7 @@
     }
   }
 
-  function toggleEaster() { easterActive = !easterActive; localStorage.setItem("nova_easter", easterActive); applyEaster(); easterBtn.style.display = "block"; }
+  function toggleEaster() { easterActive = !easterActive; localStorage.setItem("agent1102_easter", easterActive); applyEaster(); easterBtn.style.display = "block"; }
 
   // Swap image when the device rotates or the window is resized across orientations
   portraitQuery.addEventListener("change", applyEaster);
@@ -30,8 +30,8 @@
   easterBtn.addEventListener("click", toggleEaster);
 
 // Easter egg — star cursor
-let starCursorActive = localStorage.getItem("nova_star") === "true";
-let starDiscovered = localStorage.getItem("nova_star_discovered") === "true";
+let starCursorActive = localStorage.getItem("agent1102_star") === "true";
+let starDiscovered = localStorage.getItem("agent1102_star_discovered") === "true";
 let starClicks = 0;
 
 // Standard 32x32 Star SVG
@@ -91,13 +91,13 @@ function applyStarCursor() {
 
 function toggleStarCursor() { 
   starCursorActive = !starCursorActive; 
-  localStorage.setItem("nova_star", starCursorActive); 
+  localStorage.setItem("agent1102_star", starCursorActive); 
   applyStarCursor(); 
 
   // First time it's toggled, mark it as discovered so the button never hides again
   if (!starDiscovered) {
     starDiscovered = true;
-    localStorage.setItem("nova_star_discovered", "true");
+    localStorage.setItem("agent1102_star_discovered", "true");
   }
 
   // Once discovered, the button stays visible on desktop regardless of on/off state
@@ -127,7 +127,7 @@ if (typeof headerTitle !== "undefined" && headerTitle) {
 }
 
   // Easter egg — dino game
-  let dinoUnlocked = localStorage.getItem("nova_dino") === "true";
+  let dinoUnlocked = localStorage.getItem("agent1102_dino") === "true";
   const dinoBtn = document.createElement("button");
   dinoBtn.className = "icon-btn"; dinoBtn.title = "Play Dino Game"; dinoBtn.innerHTML = '<img src="images/dino.png" alt="Dino game">'; dinoBtn.style.display = dinoUnlocked ? "block" : "none";
   headerBtns.prepend(dinoBtn);
@@ -135,7 +135,7 @@ if (typeof headerTitle !== "undefined" && headerTitle) {
   dinoBtn.addEventListener("click", toggleDino);
 
   // Easter egg — PAC-MAN GAME (NEW)
-  let pacmanUnlocked = localStorage.getItem("nova_pacman") === "true";
+  let pacmanUnlocked = localStorage.getItem("agent1102_pacman") === "true";
   const pacmanBtn = document.createElement("button");
   pacmanBtn.className = "icon-btn"; pacmanBtn.title = "Play Pac-Man Game"; pacmanBtn.innerHTML = '<img src="images/pacman.png" alt="Pac-Man game">'; pacmanBtn.style.display = pacmanUnlocked ? "block" : "none";
   headerBtns.prepend(pacmanBtn);
@@ -156,7 +156,7 @@ if (typeof headerTitle !== "undefined" && headerTitle) {
     input.value = ""; 
     if (!dinoUnlocked) { 
       dinoUnlocked = true; 
-      localStorage.setItem("nova_dino","true"); 
+      localStorage.setItem("agent1102_dino","true"); 
       dinoBtn.style.display = "block"; 
       showToast("🦖 Dino game unlocked! Click the T-Rex button anytime to play!"); 
     } 
@@ -166,7 +166,7 @@ if (typeof headerTitle !== "undefined" && headerTitle) {
     input.value = ""; 
     if (!pacmanUnlocked) { 
       pacmanUnlocked = true; 
-      localStorage.setItem("nova_pacman","true"); 
+      localStorage.setItem("agent1102_pacman","true"); 
       pacmanBtn.style.display = "block"; 
       showToast('<i class="fa-solid fa-ghost"></i> Pac-Man game unlocked! Click the Pac-Man button anytime to play!'); 
     } 
