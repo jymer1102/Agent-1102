@@ -82,8 +82,8 @@ button:disabled { opacity:0.5; cursor:default; }
 .modal-btn { padding:0.75rem; border-radius:10px; border:none; font-size:1rem; cursor:pointer; font-family:Inter,sans-serif; }
 
 /* Markdown & Code Block Additions */
-.msg-content-body table { width:100%; border-collapse:collapse; margin:0.75rem 0; font-size:0.9rem; }
-.msg-content-body th, .msg-content-body td { border:1px solid var(--border); padding:6px 10px; text-align:left; }
+.msg-content-body table { width:100%; min-width:max-content; border-collapse:collapse; margin:0.75rem 0; font-size:0.9rem; }
+.msg-content-body th, .msg-content-body td { border:1px solid var(--border); padding:6px 10px; text-align:left; white-space:nowrap; }
 .msg-content-body th { background:rgba(255,255,255,0.05); }
 
 /* ============================================================
@@ -185,6 +185,7 @@ button.icon-btn[title="Toggle star cursor"], button.icon-btn[title="Toggle star 
 /* Glass-styled chat tables */
 .msg-content-body table, .chat-table {
   width: 100%;
+  min-width: max-content;
   border-collapse: collapse;
   margin: 0.75rem 0;
   font-size: 0.9rem;
@@ -199,6 +200,7 @@ button.icon-btn[title="Toggle star cursor"], button.icon-btn[title="Toggle star 
   padding: 8px 12px;
   text-align: left;
   color: inherit;
+  white-space: nowrap;
 }
 
 .msg-content-body th, .chat-table th {
@@ -232,8 +234,8 @@ button.icon-btn[title="Toggle star cursor"], button.icon-btn[title="Toggle star 
 .light .ai-text a { color:#1a5fd0; }
 .ai-text :not(pre) > code { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:0.88em; padding:0.12em 0.4em; border-radius:6px; background:rgba(127,127,127,0.22); }
 
-/* Tables */
-.table-wrap { overflow-x:auto; margin:0.75rem 0; border-radius:12px; }
+/* Tables: scroll horizontally instead of squeezing/wrapping words on narrow screens */
+.table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0.75rem 0; border-radius:12px; max-width:100%; }
 .table-wrap table { margin:0; }
 .light .msg-content-body th, .light .msg-content-body td { border-color:rgba(0,0,0,0.15); }
 .light .msg-content-body th { background:rgba(0,0,0,0.06); }
