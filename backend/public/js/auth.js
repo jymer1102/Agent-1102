@@ -1,6 +1,6 @@
 // Token refresh
   async function refreshToken() {
-    const storedRefresh = localStorage.getItem("nova_refresh_token");
+    const storedRefresh = localStorage.getItem("agent1102_refresh_token");
     if (!storedRefresh) return;
     try {
       const res = await fetch(`${BACKEND_URL}/auth/refresh`, {
@@ -10,8 +10,8 @@
       const data = await res.json();
       if (data.session) {
         userToken = data.session.access_token;
-        localStorage.setItem("nova_token", userToken);
-        localStorage.setItem("nova_refresh_token", data.session.refresh_token);
+        localStorage.setItem("agent1102_token", userToken);
+        localStorage.setItem("agent1102_refresh_token", data.session.refresh_token);
       } else { showAuth(); }
     } catch { console.error("Token refresh failed"); }
   }
@@ -37,7 +37,7 @@
     const name = authName.value.trim();
     const phone = authPhone.value.trim();
     if (!email || !password || (isSignUp && !name)) { authError.textContent = "Please fill in all fields."; return; }
-    authSubmit.disabled = true; authSubmit.textContent = "Loading...";
+    authSubmit.disabled = true; authSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Loading...';
     try {
       const res = await fetch(`${BACKEND_URL}${isSignUp ? "/auth/signup" : "/auth/login"}`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -56,9 +56,9 @@
         return;
       }
       userToken = data.session.access_token;
-      localStorage.setItem("nova_token", userToken);
-      localStorage.setItem("nova_refresh_token", data.session.refresh_token);
-      localStorage.setItem("nova_name", data.user?.user_metadata?.name || name || "");
+      localStorage.setItem("agent1102_token", userToken);
+      localStorage.setItem("agent1102_refresh_token", data.session.refresh_token);
+      localStorage.setItem("agent1102_name", data.user?.user_metadata?.name || name || "");
       showApp();
     } catch (err) { authError.textContent = "DEBUG (network/JS error): " + (err && err.message ? err.message : String(err)); authSubmit.disabled = false; authSubmit.textContent = isSignUp ? "Sign Up" : "Sign In"; }
   });
@@ -76,8 +76,8 @@
     appEl.style.display = "none";
     authScreen.style.display = "flex";
     userToken = null;
-    localStorage.removeItem("nova_token");
-    localStorage.removeItem("nova_refresh_token");
+    localStorage.removeItem("agent1102_token");
+    localStorage.removeItem("agent1102_refresh_token");
     clearAvatar();
   }
 
