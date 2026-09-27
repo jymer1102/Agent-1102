@@ -147,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pendingFiles.forEach((f, i) => {
       const chip = document.createElement("div");
       chip.className = "attach-chip";
-      chip.innerHTML = `<i class="fa-solid ${NovaRender.fileChipIcon ? NovaRender.fileChipIcon(f.name) : "fa-file-code"}"></i>`;
+      chip.innerHTML = `<i class="fa-solid ${Agent1102Render.fileChipIcon ? Agent1102Render.fileChipIcon(f.name) : "fa-file-code"}"></i>`;
       const name = document.createElement("span");
       name.className = "attach-name"; name.textContent = f.name;
       const meta = document.createElement("span");
@@ -397,21 +397,25 @@ document.addEventListener("DOMContentLoaded", () => {
     wrap.className = "msg-wrap ai";
     const t = document.createElement("div");
     t.className = "ai-text thinking";
-    t.textContent = label;
+    t.innerHTML = `<i class="fa-solid fa-spinner fa-spin-pulse"></i> <span></span>`;
+    t.querySelector("span").textContent = label;
     wrap.appendChild(t);
     chatEl.appendChild(wrap);
     chatEl.scrollTop = chatEl.scrollHeight;
-    return { wrap, text: t };
+    return { wrap, text: t, setLabel: (s) => { const sp = t.querySelector("span"); if (sp) sp.textContent = s; } };
   }
 
-  // History as the server should see it. Generated images are just a URL in our
-  // history, so the AI is told about them in words instead.
+  // History as the server should see it. Generated images/videos are just a
+  // URL in our history, so the AI is told about them in words instead.
   const GENERATED_IMG = /^!\[([^\]]*)\]\(https:\/\/image\.pollinations\.ai\/[^)]*\)$/;
+  const GENERATED_VIDEO = /^\[([^\]]*)\]\(https:\/\/image\.pollinations\.ai\/[^)]*\)$/;
   function messagesForServer() {
     return history.map(m => {
       if (m.role === "assistant" && typeof m.content === "string") {
         const g = m.content.match(GENERATED_IMG);
-        if (g) return { role: "assistant", content: `[Nova generated an image for the prompt: "${g[1]}"]` };
+        if (g) return { role: "assistant", content: `[Agent 1102 generated an image for the prompt: "${g[1]}"]` };
+        const v = m.content.match(GENERATED_VIDEO);
+        if (v) return { role: "assistant", content: `[Agent 1102 generated a video for the prompt: "${v[1]}"]` };
       }
       return m;
     });
@@ -452,6 +456,101 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Finds the most recent image the AI generated or edited in this chat, so
+  // "/edit ..." with nothing attached knows what to edit.
+  const GENERATED_IMG_URL = /!\[[^\]]*\]\((https:\/\/image\.pollinations\.ai\/[^)]*)\)/g;
+  function lastGeneratedImageUrl() {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const m = history[i];
+      if (m.role !== "assistant" || typeof m.content !== "string") continue;
+      const matches = [...m.content.matchAll(GENERATED_IMG_URL)];
+      if (matches.length) return matches[matches.length - 1][1];
+    }
+    return null;
+  }
+
+  async function editImage(typed, prompt, attachedImage) {
+    addMsg("user", typed, attachedImage ? [`data:${attachedImage.type};base64,${attachedImage.base64}`] : null);
+    history.push({ role: "user", content: typed });
+    input.value = "";
+    clearAttachments();
+
+    if (!prompt) {
+      const tip = "What should I change? Describe the edit, for example: **/edit make the sky purple**";
+      addMsg("ai", tip);
+      history.push({ role: "assistant", content: tip });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+      return;
+    }
+
+    const thinking = addThinking("Editing your image...");
+    try {
+      const body = { prompt };
+      if (attachedImage) body.imageBase64 = `data:${attachedImage.type};base64,${attachedImage.base64}`;
+      else {
+        const src = lastGeneratedImageUrl();
+        if (!src) {
+          thinking.wrap.remove();
+          addMsg("ai", "Attach an image (📎) to edit, or generate one first with **/image**, then use **/edit** on it.");
+          return;
+        }
+        body.imageUrl = src;
+      }
+      const res = await fetch(`${BACKEND_URL}/edit-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      thinking.wrap.remove();
+      if (!data.imageUrl) { addMsg("ai", data.error || "Image editing failed. Please try again."); return; }
+      const alt = prompt.replace(/[\[\]\r\n]+/g, " ").slice(0, 200);
+      const url = data.imageUrl.replace(/\(/g, "%28").replace(/\)/g, "%29");
+      const md = `![${alt}](${url})`;
+      addMsg("ai", md);
+      history.push({ role: "assistant", content: md });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+    } catch {
+      thinking.text.classList.remove("thinking");
+      thinking.text.textContent = "Error reaching the server. Is your backend running?";
+    }
+  }
+
+  async function generateVideo(typed, prompt) {
+    addMsg("user", typed);
+    history.push({ role: "user", content: typed });
+    input.value = "";
+
+    if (!prompt) {
+      const tip = "What should the video show? Describe it and I'll create it, for example: **/video a rocket launching into space**";
+      addMsg("ai", tip);
+      history.push({ role: "assistant", content: tip });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+      return;
+    }
+
+    const thinking = addThinking("Creating your video... this can take a minute");
+    try {
+      const res = await fetch(`${BACKEND_URL}/generate-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      thinking.wrap.remove();
+      if (!data.videoUrl) { addMsg("ai", data.error || "Video generation failed. Please try again."); return; }
+      const alt = prompt.replace(/[\[\]\r\n]+/g, " ").slice(0, 200);
+      const url = data.videoUrl.replace(/\(/g, "%28").replace(/\)/g, "%29");
+      const md = `[${alt}](${url})`;
+      addMsg("ai", md);
+      history.push({ role: "assistant", content: md });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+    } catch {
+      thinking.text.classList.remove("thinking");
+      thinking.text.textContent = "Error reaching the server. Is your backend running?";
+    }
+  }
+
   async function sendMessage() {
     if (sending) return;
     const typed = input.value.trim();
@@ -463,22 +562,29 @@ document.addEventListener("DOMContentLoaded", () => {
     sending = true;
     btn.disabled = true;
     try {
-      // 1) Is the user asking for an image to be created?
+      // 1) Is the user asking for an image to be created, an image edited, or a video made?
       if (!hasImage && !files.length) {
-        const req = NovaRender.parseImageRequest(typed);
+        const editReq = Agent1102Render.parseImageEditRequest(typed);
+        if (editReq) { await editImage(typed, editReq.prompt, null); return; }
+        const videoReq = Agent1102Render.parseVideoRequest(typed);
+        if (videoReq) { await generateVideo(typed, videoReq.prompt); return; }
+        const req = Agent1102Render.parseImageRequest(typed);
         if (req) { await generateImage(typed, req.prompt); return; }
+      } else if (hasImage && images.length === 1 && !files.length) {
+        // An image is attached: "/edit ..." applies the edit to it directly.
+        const editReq = Agent1102Render.parseImageEditRequest(typed);
+        if (editReq) { await editImage(typed, editReq.prompt, images[0]); return; }
       }
 
-      // 2) Normal chat, possibly with image(s) and/or code/PDF/zip files attached
+      // 2) Normal chat, possibly with image(s) and/or code/PDF/zip files attached.
+      // No default question is ever injected here — if the user didn't type
+      // anything, the AI just gets the attachment(s) and whatever they typed.
       let modelText = typed;
       if (files.length) {
         const blocks = files.map(f =>
           `<attached_file name="${f.name.replace(/"/g, "'")}">\n${f.text.replace(/<\/attached_file>/g, "<\\/attached_file>")}${f.truncated ? "\n[...file truncated...]" : ""}\n</attached_file>`
         ).join("\n\n");
-        const ask = typed || (hasImage ? "" : "Analyze the attached file(s): explain what they contain and point out anything notable (bugs, structure, improvements, etc).");
-        modelText = blocks + (ask ? "\n\n" + ask : "");
-      } else if (!typed && hasImage) {
-        modelText = images.length > 1 ? "Describe these images." : "Describe this image.";
+        modelText = blocks + (typed ? "\n\n" + typed : "");
       }
 
       const imgSrcs = images.map(im => `data:${im.type};base64,${im.base64}`);
