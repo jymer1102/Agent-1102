@@ -49,7 +49,7 @@ const BACKEND_URL = "https://agent-1102.onrender.com";
   let isRecording = false;
   let currentChatId = Date.now().toString();
   let currentChatTitle = null; // AI-generated summary title for the sidebar; null = not generated yet
-  let userToken = localStorage.getItem("nova_token") || null;
+  let userToken = localStorage.getItem("agent1102_token") || null;
   let isSignUp = false;
 
   // Keeps the Render backend awake by hitting the dedicated /ping route
