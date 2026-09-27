@@ -43,6 +43,27 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+// Fire-and-forget sanity check: confirms SUPABASE_URL/ANON/SERVICE keys are a
+// matching, valid set for the same project, and says so plainly in the logs
+// right away instead of waiting for someone's login to fail with a cryptic
+// "Invalid API key". Doesn't block startup/port binding.
+(async () => {
+  try {
+    const { error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1 });
+    if (error) {
+      console.error(
+        `\nWARNING: Supabase credentials check failed: ${error.message}\n` +
+        `SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_KEY must all come from the SAME Supabase project ` +
+        `(Project Settings → API), pasted with no extra spaces or line breaks. Sign-in/sign-up will not work until this is fixed.\n`
+      );
+    } else {
+      console.log("Supabase credentials check: OK");
+    }
+  } catch (err) {
+    console.error("WARNING: Supabase credentials check threw an error:", err && err.message ? err.message : err);
+  }
+})();
+
 // --- KEEP ALIVE ---
 app.get("/ping", (req, res) => {
   res.status(200).send("pong");
@@ -555,8 +576,10 @@ app.post("/auth/signup", async (req, res) => {
       email, password,
       options: { data: { name, phone } }
     });
-    console.log("Signup result — error:", error, "| data:", JSON.stringify(data));
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      console.log(`SIGNUP ERROR MESSAGE: ${error.message} (status ${error.status})`);
+      return res.status(400).json({ error: error.message });
+    }
     // If "Confirm email" is enabled in Supabase's Auth settings (the default for
     // new projects), signUp succeeds but issues no session until the user clicks
     // the confirmation link in their email — data.session is null in that case.
@@ -576,7 +599,10 @@ app.post("/auth/login", async (req, res) => {
   if (!email || !password) return res.status(400).json({ error: "Email and password are required." });
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      console.log(`LOGIN ERROR MESSAGE: ${error.message} (status ${error.status})`);
+      return res.status(400).json({ error: error.message });
+    }
     res.json({ user: data.user, session: data.session });
   } catch (err) {
     console.error("Login failed:", err);
