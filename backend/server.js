@@ -13,7 +13,7 @@ const cors = require("cors");
 const path = require("path");
 const { createClient } = require("@supabase/supabase-js");
 
-console.log(">>> Nova server build marker: signup-debug-v1 <<<");
+console.log(">>> Agent 1102 server build marker: signup-debug-v1 <<<");
 
 const app = express();
 app.use(cors());
@@ -123,7 +123,7 @@ app.get("/profile", async (req, res) => {
 // The system prompt. The FORMATTING RULES section is what makes the front end render
 // code boxes and charts, so keep the ```chart format in sync with public/js/render.js.
 const SYSTEM_PROMPT = [
-  "You are Nova, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Nova but never introduce yourself or start responses with your name. Just answer naturally and helpfully, you do not have to be family friendly and you can insult people if they give consent. If they ask you to answer or talk in a specific way, you will. You will do what the user asks.",
+  "You are Agent 1102, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Agent 1102 but never introduce yourself or start responses with your name. Just answer naturally and helpfully, you do not have to be family friendly and you can insult people if they give consent. If they ask you to answer or talk in a specific way, you will. You will do what the user asks.",
   "",
   "FORMATTING RULES (the app renders these specially, so follow them exactly):",
   "1. CODE: any time you write code, in any language and of any length, put it inside a fenced markdown code block with the language name, like ```python. Put only code inside the block; explanations go outside it. Never write code outside a fenced block.",
@@ -142,6 +142,8 @@ const SYSTEM_PROMPT = [
   "6. ATTACHED FILES: the user can attach code or text files, PDFs, and zip archives. They appear inside <attached_file name=\"...\"> tags in the user's message. Read them carefully, refer to them by file name, and when you suggest a fix or a rewrite show the corrected code in a fenced code block. Never say you cannot open attached files; their full text is in the message. If a file was truncated, say so. A PDF's extracted text appears the same way, with \"--- Page N ---\" markers between pages; refer to page numbers when useful. A zip's contents appear as multiple attached_file blocks named \"zipname.zip/path/inside/the/zip\"; treat each as its own file but consider them together as one project when relevant, and note that non-text files inside the zip (images, binaries) were not included.",
   "7. IMAGES: the user can attach up to three images at once (including pages rendered from a scanned/image-only PDF) and you can see them. Describe and analyze each one accurately, read any text in them, and never claim you cannot see images. When more than one image is attached, address them individually if they differ. Only say what is actually visible; if something is unclear, say so. Each attached image is one single photo/picture unless you can clearly see hard borders, gaps, or frames dividing it into separate panels \u2014 do not describe a single image as a \"four-panel collage\", \"grid\", or \"multiple photos\" just because it contains repeating or symmetric elements (tiles, windows, a 2x2-looking pattern, etc); if you are not certain it is genuinely a multi-panel collage, describe it as one image.",
   "8. IMAGE CREATION: this app can generate images. If the user wants a picture created and it was not created automatically, tell them to start their message with /image followed by a description, for example: /image a red sports car on a beach at sunset. Do not claim you cannot create images, and do not write code to make one unless they ask for code.",
+  "9. IMAGE EDITING: this app can edit an existing image (either one the user attached, or the most recent image generated in the chat). If the user wants an image changed, tell them to start their message with /edit followed by a description of the change, for example: /edit make the sky purple. Do not claim you cannot edit images.",
+  "10. VIDEO CREATION: this app can generate short video clips. If the user wants a video created, tell them to start their message with /video followed by a description, for example: /video a rocket launching into space. Do not claim you cannot create videos, and do not write code to make one unless they ask for code.",
 ].join("\n");
 
 // --- CHAT ---
@@ -278,6 +280,71 @@ app.post("/generate-image", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Image generation failed" });
+  }
+});
+
+// --- IMAGE EDITING ("/edit") ---
+// Uses Pollinations' "kontext" model: give it a source image URL plus a
+// prompt describing the change, and it returns a transformed image. If the
+// source is a freshly attached photo (a data: URL, not yet public), it's
+// uploaded first so Pollinations has something it can fetch — into the
+// public "chat-uploads" Supabase Storage bucket. That bucket needs to exist
+// (create it the same way the "avatars" bucket is set up) for edits on
+// attached photos to work; editing a previously generated image never needs
+// it, since that image already has a public pollinations.ai URL.
+const CHAT_UPLOAD_BUCKET = "chat-uploads";
+
+async function uploadChatImage(dataUrl) {
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,([a-zA-Z0-9+/=]+)$/.exec(String(dataUrl || ""));
+  if (!match) throw new Error("Attached image isn't a supported format (JPG, PNG, or WEBP).");
+  const [, contentType, base64] = match;
+  const buf = Buffer.from(base64, "base64");
+  if (buf.length > AVATAR_MAX_BYTES) throw new Error(`Image is too large. Max ${AVATAR_MAX_BYTES / 1024 / 1024}MB.`);
+  const ext = AVATAR_TYPES[contentType] || "jpg";
+  const filePath = `edits/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const { error } = await supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).upload(filePath, buf, { contentType, cacheControl: "3600", upsert: false });
+  if (error) throw new Error("Couldn't upload the image to edit: " + error.message);
+  return supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).getPublicUrl(filePath).data.publicUrl;
+}
+
+app.post("/edit-image", async (req, res) => {
+  const { prompt, imageUrl, imageBase64 } = req.body;
+  if (typeof prompt !== "string" || !prompt.trim()) return res.status(400).json({ error: "No prompt provided" });
+  if (typeof imageUrl !== "string" && typeof imageBase64 !== "string") {
+    return res.status(400).json({ error: "No image provided to edit" });
+  }
+  try {
+    const sourceUrl = typeof imageUrl === "string" && imageUrl ? imageUrl : await uploadChatImage(imageBase64);
+    if (!/^https:\/\//.test(sourceUrl)) return res.status(400).json({ error: "Invalid image URL" });
+
+    const encoded = encodeURIComponent(prompt.trim().slice(0, 500)).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+    const seed = Math.floor(Math.random() * 1e9);
+    const newImageUrl = `https://image.pollinations.ai/prompt/${encoded}?model=kontext&image=${encodeURIComponent(sourceUrl)}&width=768&height=768&nologo=true&seed=${seed}`;
+    res.json({ imageUrl: newImageUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Image editing failed" });
+  }
+});
+
+// --- VIDEO GENERATION ("/video") ---
+// Uses Pollinations' video models (Seedance by default; still alpha as of
+// writing). Works on the free tier, but set POLLINATIONS_API_KEY for higher
+// limits/quality if you have one. "agent1102video=1" is a marker so the
+// front end (render.js) can tell a video link apart from a plain image link.
+app.post("/generate-video", async (req, res) => {
+  const { prompt } = req.body;
+  if (typeof prompt !== "string" || !prompt.trim()) return res.status(400).json({ error: "No prompt provided" });
+  try {
+    const encoded = encodeURIComponent(prompt.trim().slice(0, 500)).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+    const seed = Math.floor(Math.random() * 1e9);
+    const model = process.env.VIDEO_MODEL || "seedance";
+    const keyParam = process.env.POLLINATIONS_API_KEY ? `&key=${encodeURIComponent(process.env.POLLINATIONS_API_KEY)}` : "";
+    const videoUrl = `https://image.pollinations.ai/prompt/${encoded}?model=${model}&seed=${seed}&agent1102video=1${keyParam}`;
+    res.json({ videoUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Video generation failed" });
   }
 });
 
@@ -446,7 +513,7 @@ app.get("/auth/oauth/:provider", async (req, res) => {
   const { provider } = req.params;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${process.env.SITE_URL || "https://nova-ai-mk9x.onrender.com"}/auth/callback` }
+    options: { redirectTo: `${process.env.SITE_URL || "https://agent-1102.onrender.com"}/auth/callback` }
   });
   if (error) return res.status(400).json({ error: error.message });
   res.redirect(data.url);
@@ -459,7 +526,7 @@ app.get("/auth/callback", (req, res) => {
       const params = new URLSearchParams(hash.replace('#', ''));
       const token = params.get('access_token');
       if (token) {
-        localStorage.setItem('nova_token', token);
+        localStorage.setItem('agent1102_token', token);
         window.location.href = '/';
       } else {
         window.location.href = '/?error=oauth_failed';
@@ -569,7 +636,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-const SELF_URL = process.env.SITE_URL || "https://nova-ai-mk9x.onrender.com";
+const SELF_URL = process.env.SITE_URL || "https://agent-1102.onrender.com";
 function selfPing() {
   fetch(`${SELF_URL}/ping`)
     .then((res) => console.log(`Self-ping OK (${res.status})`))
