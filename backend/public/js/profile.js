@@ -15,14 +15,14 @@
   // The one place the avatar changes everywhere: header icon, profile-modal preview, and the local cache.
   // Supabase is the source of truth; localStorage only holds the picture's URL so it shows instantly on load.
   function setAvatar(url) {
-    if (url) localStorage.setItem("nova_avatar", url); else localStorage.removeItem("nova_avatar");
+    if (url) localStorage.setItem("agent1102_avatar", url); else localStorage.removeItem("agent1102_avatar");
     updateProfileIcon(url);
     avatarPreview.src = url || DEFAULT_AVATAR;
   }
   function clearAvatar() { setAvatar(null); }
 
   // Show the cached picture immediately. (Older versions cached the image itself as base64, so only trust real URLs.)
-  const savedAvatar = localStorage.getItem("nova_avatar");
+  const savedAvatar = localStorage.getItem("agent1102_avatar");
   setAvatar(savedAvatar && /^https?:/.test(savedAvatar) ? savedAvatar : null);
 
   // Called on every sign-in / page load: pulls the user's saved picture from Supabase so it follows them to any device.
@@ -36,7 +36,7 @@
   }
 
   profileBtn.addEventListener("click", () => {
-    document.getElementById("profile-name").value = localStorage.getItem("nova_name") || "";
+    document.getElementById("profile-name").value = localStorage.getItem("agent1102_name") || "";
     document.getElementById("profile-email").value = "";
     document.getElementById("profile-password").value = "";
     profileMsg.textContent = "";
@@ -49,7 +49,7 @@
     const name = document.getElementById("profile-name").value.trim();
     const email = document.getElementById("profile-email").value.trim();
     const password = document.getElementById("profile-password").value.trim();
-    profileSave.disabled = true; profileSave.textContent = "Saving...";
+    profileSave.disabled = true; profileSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin-pulse"></i> Saving...';
     try {
       const res = await fetch(`${BACKEND_URL}/auth/update`, {
         method: "POST",
@@ -59,7 +59,7 @@
       const data = await res.json();
       if (data.error) { profileMsg.style.color = "#e74c3c"; profileMsg.textContent = data.error; }
       else {
-        if (name) localStorage.setItem("nova_name", name);
+        if (name) localStorage.setItem("agent1102_name", name);
         profileMsg.style.color = "#2ecc71"; profileMsg.textContent = "Saved!";
         setTimeout(() => { profileModal.classList.remove("open"); profileMsg.textContent = ""; }, 1500);
       }
@@ -101,17 +101,17 @@
     if (file.size > AVATAR_MAX_BYTES) { showToast(`File too big! Max ${AVATAR_MAX_BYTES / 1024 / 1024}MB.`); e.target.value = ""; return; }
 
     // Show the picture right away from the local file while it uploads
-    const previousUrl = localStorage.getItem("nova_avatar");
+    const previousUrl = localStorage.getItem("agent1102_avatar");
     const localUrl = URL.createObjectURL(file);
     updateProfileIcon(localUrl);
     avatarPreview.src = localUrl;
-    showToast("Uploading profile picture...");
+    showToast('<i class="fa-solid fa-spinner fa-spin-pulse"></i> Uploading profile picture...');
 
     try {
       const url = await uploadAvatar(file);
       // Remember the saved URL for next time. The UI keeps showing the already-loaded local image,
       // so there's no flicker or second download; every other device / future load uses `url`.
-      localStorage.setItem("nova_avatar", url);
+      localStorage.setItem("agent1102_avatar", url);
       showToast('<span class="toast-success">Profile picture updated! <i class="fa-solid fa-circle-check"></i></span>');
     } catch (err) {
       console.error("Avatar upload failed:", err);
