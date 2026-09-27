@@ -21,6 +21,18 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
+const missingEnv = REQUIRED_ENV.filter(k => !process.env[k] || !process.env[k].trim());
+if (missingEnv.length) {
+  console.error(
+    `\nFATAL: missing required environment variable(s): ${missingEnv.join(", ")}\n` +
+    `Set these in your host's dashboard (Render: your service → Environment tab) and redeploy.\n` +
+    `SUPABASE_URL and SUPABASE_ANON_KEY come from Supabase → Project Settings → API ("Project URL" and "anon public" key).\n` +
+    `SUPABASE_SERVICE_KEY is the "service_role" secret key on that same page — keep it server-side only, never ship it to the client.\n`
+  );
+  process.exit(1);
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
