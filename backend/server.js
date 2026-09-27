@@ -216,6 +216,55 @@ app.post("/chat", async (req, res) => {
   }
 });
 
+// --- CHAT TITLE (auto-summarize the conversation for the sidebar) ---
+app.post("/title", async (req, res) => {
+  if (!Array.isArray(req.body.messages) || !req.body.messages.length) {
+    return res.status(400).json({ error: "No messages provided" });
+  }
+  try {
+    // Compact, text-only transcript: strip attached_file blocks/images down to short
+    // markers and cap each turn's length so the summarizer call stays small and cheap.
+    const transcript = req.body.messages.slice(-40).map(m => {
+      let text = "";
+      if (typeof m.content === "string") text = m.content;
+      else if (Array.isArray(m.content)) text = m.content.filter(p => p && p.type === "text").map(p => p.text).join(" ");
+      text = text.replace(/<attached_file[^>]*>[\s\S]*?<\/attached_file>/g, "[attached file]").trim().slice(0, 800);
+      if (!text) return null;
+      return `${m.role === "user" ? "User" : "Assistant"}: ${text}`;
+    }).filter(Boolean).join("\n");
+
+    if (!transcript.trim()) return res.status(400).json({ error: "Nothing to summarize" });
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: TEXT_MODEL,
+        max_tokens: 20,
+        temperature: 0.3,
+        messages: [
+          {
+            role: "system",
+            content: "You write short titles for chat conversations. Read the conversation and reply with ONLY a concise title (3-6 words) summarizing its overall topic so far. Do not use quotes, a trailing period, or a prefix like \"Title:\" \u2014 reply with just the title text itself.",
+          },
+          { role: "user", content: transcript },
+        ],
+      }),
+    });
+    const data = await response.json();
+    let title = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    title = String(title || "").replace(/^["'\s]+|["'\s.]+$/g, "").replace(/\s+/g, " ").slice(0, 60);
+    if (!title) return res.status(500).json({ error: "No title generated" });
+    res.json({ title });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Title generation failed" });
+  }
+});
+
 // --- IMAGE GENERATION ---
 app.post("/generate-image", async (req, res) => {
   const { prompt } = req.body;
