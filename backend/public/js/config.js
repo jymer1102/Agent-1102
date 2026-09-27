@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://nova-ai-mk9x.onrender.com";
+const BACKEND_URL = "https://agent-1102.onrender.com";
 
   // Elements
   const authScreen = document.getElementById("auth-screen");
@@ -48,6 +48,7 @@ const BACKEND_URL = "https://nova-ai-mk9x.onrender.com";
   let recognition = null;
   let isRecording = false;
   let currentChatId = Date.now().toString();
+  let currentChatTitle = null; // AI-generated summary title for the sidebar; null = not generated yet
   let userToken = localStorage.getItem("nova_token") || null;
   let isSignUp = false;
 
