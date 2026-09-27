@@ -16,7 +16,7 @@
   });
 
   // New chat (keeps the old behavior: saves the current chat, then starts fresh)
-  newChatBtn.addEventListener("click", () => { saveCurrentChat(); history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); addGreeting(); });
+  newChatBtn.addEventListener("click", () => { saveCurrentChat(); history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); currentChatTitle = null; addGreeting(); });
 
   // Trash-can button: permanently deletes the CURRENT chat (not just clears the view)
   clearBtn.addEventListener("click", async () => {
@@ -26,7 +26,7 @@
         await fetch(`${BACKEND_URL}/chats/${currentChatId}`, { method: "DELETE", headers: { "Authorization": `Bearer ${userToken}` } });
       } catch { console.error("Failed to delete chat"); }
     }
-    history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); addGreeting();
+    history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); currentChatTitle = null; addGreeting();
     if (sidebar.classList.contains("open")) await loadChats();
   });
 
@@ -34,7 +34,7 @@
   clearAllBtn.addEventListener("click", async () => {
     if (!confirm("Delete all chat history? This can't be undone.")) return;
     await fetch(`${BACKEND_URL}/chats`, { method: "DELETE", headers: { "Authorization": `Bearer ${userToken}` } });
-    history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); addGreeting();
+    history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); currentChatTitle = null; addGreeting();
     renderSidebar([]);
   });
 
@@ -44,11 +44,29 @@
   overlay.addEventListener("click", closeSidebarFn);
   function closeSidebarFn() { sidebar.classList.remove("open"); overlay.classList.remove("show"); }
 
+  async function maybeUpdateTitle() {
+    const userCount = history.filter(m => m.role === "user").length;
+    // Generate right after the 1st user message, then refresh every 5 user
+    // messages after that (6th, 11th, 16th, ...).
+    const shouldGenerate = currentChatTitle === null ? userCount >= 1 : userCount > 1 && (userCount - 1) % 5 === 0;
+    if (!shouldGenerate) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/title`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json();
+      if (data && data.title) currentChatTitle = data.title;
+    } catch { console.error("Failed to generate chat title"); }
+  }
+
   async function saveCurrentChat() {
     if (history.length < 1 || !userToken) return;
     const firstUserMsg = history.find(m => m.role === "user");
     if (!firstUserMsg) return;
-    const title = NovaRender.historyTitle(firstUserMsg);
+    await maybeUpdateTitle();
+    const title = currentChatTitle || NovaRender.historyTitle(firstUserMsg);
     await fetch(`${BACKEND_URL}/chats`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${userToken}` },
@@ -72,7 +90,7 @@
       el.addEventListener("click", () => {
         const c = chats.find(x => x.id === el.closest(".history-item").dataset.id);
         if (!c) return;
-        history = c.history; currentChatId = c.id; chatEl.innerHTML = "";
+        history = c.history; currentChatId = c.id; currentChatTitle = c.title || null; chatEl.innerHTML = "";
         history.forEach(m => addHistoryMsg(m));
         closeSidebarFn();
       });
@@ -84,7 +102,7 @@
         if (!confirm(`Delete "${c ? c.title : "this chat"}"? This can't be undone.`)) return;
         await fetch(`${BACKEND_URL}/chats/${el.dataset.id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${userToken}` } });
         if (el.dataset.id === currentChatId) {
-          history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); addGreeting();
+          history = []; chatEl.innerHTML = ""; currentChatId = Date.now().toString(); currentChatTitle = null; addGreeting();
         }
         await loadChats();
       });
