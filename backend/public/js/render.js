@@ -162,6 +162,21 @@
     return null;
   }
 
+  /* ---------------------------------------------------------- */
+  /*  "/edit" (image editing) and "/video" command detection     */
+  /* ---------------------------------------------------------- */
+  function parseImageEditRequest(raw) {
+    const t = String(raw || "").trim();
+    const m = t.match(/^\/edit\b\s*([\s\S]*)$/i);
+    return m ? { prompt: tidyPrompt(m[1]) } : null;
+  }
+
+  function parseVideoRequest(raw) {
+    const t = String(raw || "").trim();
+    const m = t.match(/^\/video\b\s*([\s\S]*)$/i);
+    return m ? { prompt: tidyPrompt(m[1]) } : null;
+  }
+
   // A short, single-line title for the sidebar
   function historyTitle(msg) {
     let text = "";
@@ -187,16 +202,70 @@
     text: "txt", plaintext: "txt", txt: "txt",
   };
 
+  const HTML_LANGS = ["html", "htm", "xhtml"];
+
+  // One accent color per language (loosely GitHub's linguist palette), so a
+  // Python block, a JS block, a shell block etc. are visually distinct at a
+  // glance, the same way file icons differ by type in an IDE.
+  const LANG_COLOR = {
+    javascript: "#f1e05a", js: "#f1e05a", jsx: "#f1e05a", mjs: "#f1e05a", cjs: "#f1e05a", node: "#f1e05a",
+    typescript: "#3178c6", ts: "#3178c6", tsx: "#3178c6",
+    python: "#3572a5", py: "#3572a5", pyw: "#3572a5",
+    html: "#e34c26", htm: "#e34c26", xhtml: "#e34c26",
+    css: "#563d7c", scss: "#c6538c", sass: "#a53b70", less: "#1d365d",
+    json: "#cbcb41", json5: "#cbcb41", jsonl: "#cbcb41",
+    java: "#b07219",
+    c: "#a8b9cc", h: "#a8b9cc",
+    cpp: "#f34b7d", "c++": "#f34b7d", cc: "#f34b7d", cxx: "#f34b7d", hpp: "#f34b7d",
+    csharp: "#178600", cs: "#178600", "c#": "#178600",
+    go: "#00add8",
+    rust: "#dea584", rs: "#dea584",
+    ruby: "#e9573f", rb: "#e9573f",
+    php: "#8892bf",
+    swift: "#f05138",
+    kotlin: "#a97bff", kt: "#a97bff",
+    bash: "#89e051", sh: "#89e051", shell: "#89e051", zsh: "#89e051", fish: "#89e051",
+    powershell: "#6da8dd", ps1: "#6da8dd", bat: "#6da8dd", batch: "#6da8dd",
+    sql: "#e38cd7",
+    yaml: "#cb171e", yml: "#cb171e",
+    xml: "#61a6e6",
+    markdown: "#4c9bd8", md: "#4c9bd8",
+    r: "#198ce7",
+    lua: "#7896c9",
+    dart: "#00b4ab",
+    perl: "#0298c3", pl: "#0298c3",
+    scala: "#c22d40",
+    haskell: "#5e5086", hs: "#5e5086",
+    matlab: "#e16737",
+    toml: "#9c4221",
+    ini: "#6d8086", cfg: "#6d8086", conf: "#6d8086",
+    csv: "#3fb950", tsv: "#3fb950",
+    dockerfile: "#61dafb",
+    graphql: "#e10098", gql: "#e10098",
+    vue: "#41b883", svelte: "#ff3e00",
+    diff: "#e0883d", patch: "#e0883d",
+  };
+  const langColor = lang => LANG_COLOR[lang] || "#9aa0a6";
+
   function buildCodeBlock(text, lang) {
     const cleanLang = /^[\w+#.-]{1,20}$/.test(lang || "") ? lang.toLowerCase() : "";
     const shown = String(text).replace(/\n$/, "");
+    const isHtml = HTML_LANGS.includes(cleanLang);
+    const color = langColor(cleanLang);
 
     const box = el("div", "code-block");
+    box.style.setProperty("--lang-color", color);
     const head = el("div", "code-header");
+    const langWrap = el("span", "code-lang-wrap");
+    const dot = el("span", "code-lang-dot");
+    dot.style.background = color;
     const label = el("span", "code-lang");
+    label.style.color = color;
     label.textContent = cleanLang || "code";
+    langWrap.append(dot, label);
 
     const actions = el("div", "code-actions");
+    const previewBtn = isHtml ? makeBtn("code-btn", "fa-eye", "Preview", "Preview this HTML") : null;
     const copyBtn = makeBtn("code-btn", "fa-copy", "Copy", "Copy code");
     const dlBtn = makeBtn("code-btn", "fa-download", "Download", "Download code");
 
@@ -206,18 +275,40 @@
     });
     dlBtn.addEventListener("click", () => {
       const ext = FILE_EXT[cleanLang] || "txt";
-      downloadFile(`nova-code.${ext}`, shown + "\n");
+      downloadFile(`agent1102-code.${ext}`, shown + "\n");
       flash(dlBtn, "fa-download", "Download", "Saved");
     });
-
-    actions.append(copyBtn, dlBtn);
-    head.append(label, actions);
 
     const pre = el("pre");
     const code = el("code");
     if (cleanLang) code.className = "language-" + cleanLang;
     code.textContent = shown;
     pre.appendChild(code);
+
+    if (previewBtn) {
+      let previewing = false;
+      let frame = null;
+      previewBtn.addEventListener("click", () => {
+        previewing = !previewing;
+        if (previewing) {
+          if (!frame) {
+            frame = el("iframe", "code-preview-frame");
+            frame.setAttribute("sandbox", "allow-scripts allow-forms allow-modals allow-popups");
+            frame.srcdoc = shown;
+          }
+          pre.replaceWith(frame);
+          setBtn(previewBtn, "fa-code", "View Code");
+          previewBtn.title = "View the code";
+        } else {
+          frame.replaceWith(pre);
+          setBtn(previewBtn, "fa-eye", "Preview");
+          previewBtn.title = "Preview this HTML";
+        }
+      });
+    }
+
+    actions.append(...[previewBtn, copyBtn, dlBtn].filter(Boolean));
+    head.append(langWrap, actions);
 
     box.append(head, pre);
     return box;
@@ -310,7 +401,7 @@
 
   // Draws the actual numbers on bars and the percentages on pie / donut slices
   const valueLabelPlugin = {
-    id: "novaValueLabels",
+    id: "agent1102ValueLabels",
     afterDatasetsDraw(chart) {
       const type = chart.config.type;
       if (type !== "bar" && type !== "pie" && type !== "doughnut") return;
@@ -465,7 +556,7 @@
     ctx.fillRect(0, 0, out.width, out.height);
     ctx.drawImage(src, 0, 0);
     const slug = (entry.spec.title || "chart").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "chart";
-    out.toBlob(blob => { if (blob) downloadFile(`nova-${slug}.png`, blob); }, "image/png");
+    out.toBlob(blob => { if (blob) downloadFile(`agent1102-${slug}.png`, blob); }, "image/png");
   }
 
   function chartError(rawText, message) {
@@ -567,7 +658,7 @@
         if (!r.ok) throw new Error("bad response");
         const blob = await r.blob();
         const ext = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" }[blob.type] || "jpg";
-        downloadFile(`nova-image-${timestamp()}.${ext}`, blob);
+        downloadFile(`agent1102-image-${timestamp()}.${ext}`, blob);
         flash(dl, "fa-download", "Download", "Saved");
       } catch (_) {
         window.open(im.currentSrc || im.src, "_blank", "noopener");
@@ -576,6 +667,93 @@
     });
 
     load();
+    return card;
+  }
+
+  /* ---------------------------------------------------------- */
+  /*  Generated videos ("/video" command)                        */
+  /* ---------------------------------------------------------- */
+  function isGeneratedVideoUrl(src) {
+    try {
+      const u = new URL(src, location.href);
+      return u.protocol === "https:" && u.hostname === GEN_IMAGE_HOST && u.searchParams.get("agent1102video") === "1";
+    } catch (_) { return false; }
+  }
+
+  function buildVideoCard(src, alt) {
+    const card = el("figure", "image-card video-card");
+    const frame = el("div", "image-frame loading");
+    const status = el("div", "image-status");
+    const video = el("video");
+    video.controls = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    frame.append(status, video);
+
+    const caption = el("figcaption");
+    caption.textContent = alt;
+
+    const actions = el("div", "image-actions");
+    const dl = makeBtn("code-btn", "fa-download", "Download", "Download video");
+    actions.appendChild(dl);
+    card.append(frame, caption, actions);
+
+    let attempt = 0;
+    function load() {
+      frame.classList.remove("failed");
+      frame.classList.add("loading");
+      status.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span>Generating your video… this can take a minute or two</span>';
+      video.src = attempt ? src + (src.includes("?") ? "&" : "?") + "retry=" + Date.now() : src;
+    }
+    video.addEventListener("loadeddata", () => { frame.classList.remove("loading", "failed"); card.classList.add("ready"); scrollChat(); });
+    video.addEventListener("error", () => {
+      frame.classList.remove("loading");
+      frame.classList.add("failed");
+      status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>Couldn\'t load the video. Video generation can be slow or rate-limited, so wait a moment and try again.</span>';
+      const retry = makeBtn("code-btn", "fa-rotate-right", "Try again", "Try again");
+      retry.addEventListener("click", () => { attempt++; load(); });
+      status.appendChild(retry);
+    });
+
+    dl.addEventListener("click", async () => {
+      try {
+        const r = await fetch(video.currentSrc || video.src, { cache: "force-cache" });
+        if (!r.ok) throw new Error("bad response");
+        const blob = await r.blob();
+        downloadFile(`agent1102-video-${timestamp()}.mp4`, blob);
+        flash(dl, "fa-download", "Download", "Saved");
+      } catch (_) {
+        window.open(video.currentSrc || video.src, "_blank", "noopener");
+        toast("Opened the video in a new tab. Right-click or long-press it to save.");
+      }
+    });
+
+    load();
+    return card;
+  }
+
+  /* ---------------------------------------------------------- */
+  /*  Link preview cards                                         */
+  /*  Any external link the AI shares (or a standalone link on   */
+  /*  its own line) is shown as a small card with an Open button */
+  /*  rather than auto-loading its content.                      */
+  /* ---------------------------------------------------------- */
+  function buildLinkCard(href, label) {
+    let hostname = href;
+    try { hostname = new URL(href, location.href).hostname.replace(/^www\./, ""); } catch (_) {}
+
+    const card = el("div", "link-card");
+    const icon = el("div", "link-card-icon");
+    icon.innerHTML = '<i class="fa-solid fa-link"></i>';
+    const body = el("div", "link-card-body");
+    const title = el("div", "link-card-title");
+    title.textContent = (label || hostname || href).trim() || href;
+    const host = el("div", "link-card-host");
+    host.textContent = hostname;
+    body.append(title, host);
+    const open = makeBtn("code-btn link-card-open", "fa-arrow-up-right-from-square", "Open", "Open link");
+    open.addEventListener("click", () => window.open(href, "_blank", "noopener"));
+    card.append(icon, body, open);
     return card;
   }
 
@@ -660,19 +838,30 @@
     // points to becomes a plain link (auto-loading arbitrary URLs can leak data).
     root.querySelectorAll("img").forEach(img => {
       const src = img.getAttribute("src") || "";
+      const parent = img.parentElement;
+      const soleChild = parent && (parent.tagName === "P" || parent.tagName === "LI") && parent.childNodes.length === 1;
       if (isGeneratedImageUrl(src)) {
         const card = buildImageCard(src, img.getAttribute("alt") || "Generated image");
-        const parent = img.parentElement;
-        if (parent && parent.tagName === "P" && parent.childNodes.length === 1) parent.replaceWith(card);
-        else img.replaceWith(card);
+        if (soleChild) parent.replaceWith(card); else img.replaceWith(card);
       } else if (/^https?:/i.test(src)) {
-        const a = el("a");
-        a.href = src;
-        a.textContent = img.getAttribute("alt") || src;
-        img.replaceWith(a);
+        // Not our own image: never auto-load it (privacy). Show a small
+        // link-preview card instead, same idea as a generated image/video.
+        const card = buildLinkCard(src, img.getAttribute("alt") || "");
+        if (soleChild) parent.replaceWith(card); else img.replaceWith(card);
       } else {
         img.remove();
       }
+    });
+
+    // "/video" results: rendered as a plain markdown link to the generated
+    // clip; turn that link into a playable video card.
+    root.querySelectorAll("a[href]").forEach(a => {
+      const href = a.getAttribute("href") || "";
+      if (!isGeneratedVideoUrl(href)) return;
+      const card = buildVideoCard(href, a.textContent || "Generated video");
+      const parent = a.parentElement;
+      const soleChild = parent && parent.tagName === "P" && parent.childNodes.length === 1;
+      if (soleChild) parent.replaceWith(card); else a.replaceWith(card);
     });
 
     root.querySelectorAll("pre").forEach(pre => {
@@ -1208,11 +1397,18 @@
   /* ---------------------------------------------------------- */
   /*  Public API                                                 */
   /* ---------------------------------------------------------- */
-  window.addMsg = function addMsg(role, text, imgSrc) {
+  window.addMsg = function addMsg(role, text, imgSrc, index) {
     const chat = document.getElementById("chat");
     const isUser = role === "user";
     const content = String(text == null ? "" : text);
     const imgList = Array.isArray(imgSrc) ? imgSrc.filter(Boolean) : (imgSrc ? [imgSrc] : []);
+    // Which slot in `history` this message will occupy. Callers that add a
+    // message and push it onto history right afterward (live sends, the
+    // greeting) can omit this — history.length at this point is correct
+    // since the push hasn't happened yet. Replaying a saved chat passes it
+    // explicitly (see addHistoryMsg) since the whole history array is
+    // already in place by then.
+    const msgIndex = typeof index === "number" ? index : (typeof history !== "undefined" && Array.isArray(history) ? history.length : null);
     const wrap = el("div", "msg-wrap " + (isUser ? "user" : "ai"));
     chat.appendChild(wrap);
 
@@ -1259,6 +1455,23 @@
           else toast("Couldn't copy — your browser blocked it");
         });
         actions.appendChild(copyBtn);
+
+        if (msgIndex != null) {
+          const editBtn = makeBtn("msg-action-btn", "fa-pen", "", "Edit & resend");
+          editBtn.addEventListener("click", () => {
+            const inputEl = document.getElementById("input");
+            if (inputEl) inputEl.value = shown;
+            // Drop this message and everything after it, both on screen and
+            // in history, so the edited prompt starts a fresh reply.
+            if (typeof history !== "undefined" && Array.isArray(history)) history = history.slice(0, msgIndex);
+            let node = wrap;
+            while (node) { const next = node.nextSibling; node.remove(); node = next; }
+            if (inputEl) { inputEl.focus(); inputEl.setSelectionRange(inputEl.value.length, inputEl.value.length); }
+            if (typeof saveCurrentChat === "function") saveCurrentChat();
+          });
+          actions.appendChild(editBtn);
+        }
+
         wrap.appendChild(actions);
       }
     } else {
@@ -1277,7 +1490,7 @@
         else toast("Couldn't copy — your browser blocked it");
       });
       dlBtn.addEventListener("click", () => {
-        downloadFile(`nova-response-${timestamp()}.md`, responseToText(content) + "\n", "text/markdown;charset=utf-8");
+        downloadFile(`agent1102-response-${timestamp()}.md`, responseToText(content) + "\n", "text/markdown;charset=utf-8");
         flash(dlBtn, "fa-download", "", "");
       });
 
@@ -1291,22 +1504,22 @@
   };
 
   // Re-draws one saved history entry (text, image + text, attached files, generated images)
-  window.addHistoryMsg = function addHistoryMsg(m) {
+  window.addHistoryMsg = function addHistoryMsg(m, index) {
     if (!m || m.role === "system") return null;
-    if (typeof m.content === "string") return window.addMsg(m.role, m.content);
+    if (typeof m.content === "string") return window.addMsg(m.role, m.content, null, index);
     if (Array.isArray(m.content)) {
       const urls = m.content
         .filter(p => p && p.type === "image_url" && p.image_url && typeof p.image_url.url === "string" && p.image_url.url.startsWith("data:image/"))
         .map(p => p.image_url.url);
       const text = m.content.filter(p => p && p.type === "text").map(p => p.text).join("\n");
-      return window.addMsg(m.role, text, urls);
+      return window.addMsg(m.role, text, urls, index);
     }
     return null;
   };
 
   window.addGreeting = function addGreeting() {
-    const name = localStorage.getItem("nova_name");
-    const greeting = `Hi${name ? ` ${name}` : ""}! I'm Nova, your personal AI assistant by jymer1102. How can I help you?`;
+    const name = localStorage.getItem("agent1102_name");
+    const greeting = `Hi${name ? ` ${name}` : ""}! I'm Agent 1102, your personal AI assistant by jymer1102. How can I help you?`;
     window.addMsg("ai", greeting);
     if (typeof history !== "undefined" && Array.isArray(history)) {
       history.push({ role: "assistant", content: greeting });
@@ -1314,5 +1527,9 @@
   };
 
   // Exposed for testing / other scripts
-  window.NovaRender = { normalizeChartSpec, responseToText, chunkText, parseImageRequest, parseAttachedFiles, historyTitle, escapeHtml, mathToSpeech, speakableText, extractMath, fileChipIcon };
+  window.Agent1102Render = {
+    normalizeChartSpec, responseToText, chunkText, parseImageRequest, parseImageEditRequest, parseVideoRequest,
+    parseAttachedFiles, historyTitle, escapeHtml, mathToSpeech, speakableText, extractMath, fileChipIcon,
+    isGeneratedVideoUrl, buildLinkCard,
+  };
 })();
