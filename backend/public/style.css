@@ -74,8 +74,7 @@ button:disabled { opacity:0.5; cursor:default; }
 #overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:99; }
 #overlay.show { display:block; }
 /* ============================================================
-   Default cursor (jymer1102 branding). The star-cursor easter
-   egg (easter-eggs.js) overrides this with !important when on.
+   Default cursor (jymer1102 branding)
    ============================================================ */
 @media (pointer: fine) {
   body, body * { cursor:url('images/cursor/custom-j-cursor.png') 2 2, auto; }
@@ -164,10 +163,7 @@ button:hover, .icon-btn:hover, .tool-btn:hover, .msg-action-btn:hover, .history-
 #clear-btn, #clear-btn i, #clear-btn span,
 #profile-delete, #profile-delete i, #profile-delete span,
 #profile-close, #profile-close i, #profile-close span { color:#ff4d4f!important; }
-button.icon-btn[title="Toggle star cursor"], button.icon-btn[title="Toggle star cursor"] i,
-.header-title i, .auth-box h1 i { color:#FFD700!important; }
 .msg-action-btn.copied, .msg-action-btn.copied i, .toast-success, .toast-success i { color:#2ecc71!important; }
-.toast-star, .toast-star i { color:#FFD700!important; }
 
 #profile-modal .modal-box { align-items:center; text-align:center; }
 #profile-modal .modal-box h2 { display:flex; align-items:center; justify-content:center; gap:0.5rem; width:100%; }
@@ -349,8 +345,7 @@ header { padding:max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-
 /* ============================================================
    Header: the title sits on its own line above the buttons (all screen sizes)
    Row 1: title, centered. Its click box is only as wide as the title itself
-          (justify-self:center shrinks it to the letters), so the star-cursor
-          easter egg only triggers when you click the text.
+          (justify-self:center shrinks it to the letters).
    Row 2: history/new-chat on the left, everything else on the right.
    Easter-egg buttons are added to the right group, so it wraps if a tiny
    screen can't fit them all.
