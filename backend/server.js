@@ -330,27 +330,56 @@ app.post("/generate-image", async (req, res) => {
 });
 
 // --- IMAGE EDITING ("/edit") ---
-// Uses Pollinations' "kontext" model: give it a source image URL plus a
-// prompt describing the change, and it returns a transformed image. If the
-// source is a freshly attached photo (a data: URL, not yet public), it's
-// uploaded first so Pollinations has something it can fetch — into the
-// public "chat-uploads" Supabase Storage bucket. That bucket needs to exist
-// (create it the same way the "avatars" bucket is set up) for edits on
-// attached photos to work; editing a previously generated image never needs
-// it, since that image already has a public pollinations.ai URL.
+// Runs on the server because Pollinations' image-edit endpoint needs an API
+// key (set POLLINATIONS_API_KEY in Render; get one at enter.pollinations.ai)
+// and that key must never reach the browser. Flow: get the source image bytes
+// (an attached photo, or the previously generated image), send them plus the
+// prompt to Pollinations, save the result in the public "chat-uploads"
+// Supabase Storage bucket, and return that URL for the chat to display.
+// EDIT_MODEL (default "kontext") can be changed without touching code.
 const CHAT_UPLOAD_BUCKET = "chat-uploads";
+const EDIT_MAX_BYTES = 10 * 1024 * 1024;
 
-async function uploadChatImage(dataUrl) {
-  const match = /^data:(image\/(?:jpeg|png|webp));base64,([a-zA-Z0-9+/=]+)$/.exec(String(dataUrl || ""));
-  if (!match) throw new Error("Attached image isn't a supported format (JPG, PNG, or WEBP).");
-  const [, contentType, base64] = match;
-  const buf = Buffer.from(base64, "base64");
-  if (buf.length > AVATAR_MAX_BYTES) throw new Error(`Image is too large. Max ${AVATAR_MAX_BYTES / 1024 / 1024}MB.`);
-  const ext = AVATAR_TYPES[contentType] || "jpg";
-  const filePath = `edits/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const { error } = await supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).upload(filePath, buf, { contentType, cacheControl: "3600", upsert: false });
-  if (error) throw new Error("Couldn't upload the image to edit: " + error.message);
-  return supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).getPublicUrl(filePath).data.publicUrl;
+// Create the bucket on startup if it isn't there yet (no manual dashboard step).
+(async () => {
+  try {
+    const { error } = await supabaseAdmin.storage.createBucket(CHAT_UPLOAD_BUCKET, { public: true, fileSizeLimit: EDIT_MAX_BYTES });
+    if (error && !/already exists|duplicate/i.test(error.message)) {
+      console.warn(`WARNING: couldn't create the "${CHAT_UPLOAD_BUCKET}" storage bucket (/edit needs it): ${error.message}`);
+    }
+  } catch (err) {
+    console.warn("WARNING: storage bucket check failed:", err && err.message ? err.message : err);
+  }
+})();
+
+function sniffImageMime(buf) {
+  if (buf.length > 3 && buf[0] === 0xff && buf[1] === 0xd8) return "image/jpeg";
+  if (buf.length > 8 && buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (buf.length > 12 && buf.slice(0, 4).toString() === "RIFF" && buf.slice(8, 12).toString() === "WEBP") return "image/webp";
+  return null;
+}
+const MIME_EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+
+async function loadEditSource({ imageUrl, imageBase64 }) {
+  let buf;
+  if (typeof imageBase64 === "string" && imageBase64) {
+    const m = /^data:image\/(?:jpeg|png|webp);base64,([a-zA-Z0-9+/=]+)$/.exec(imageBase64);
+    if (!m) throw new Error("Attached image isn't a supported format (JPG, PNG, or WEBP).");
+    buf = Buffer.from(m[1], "base64");
+  } else {
+    let u;
+    try { u = new URL(imageUrl); } catch (_) { throw new Error("Invalid image URL."); }
+    const ownHost = new URL(process.env.SUPABASE_URL).hostname;
+    const okHost = u.protocol === "https:" && (u.hostname === "image.pollinations.ai" || u.hostname === "media.pollinations.ai" || u.hostname === "gen.pollinations.ai" || u.hostname === ownHost);
+    if (!okHost) throw new Error("I can only edit images from this chat.");
+    const r = await fetch(u, { signal: AbortSignal.timeout(60000) });
+    if (!r.ok) throw new Error(`Couldn't load the image to edit (${r.status}).`);
+    buf = Buffer.from(await r.arrayBuffer());
+  }
+  if (buf.length > EDIT_MAX_BYTES) throw new Error(`Image is too large. Max ${EDIT_MAX_BYTES / 1024 / 1024}MB.`);
+  const mime = sniffImageMime(buf);
+  if (!mime) throw new Error("That doesn't look like a JPG, PNG, or WEBP image.");
+  return { buf, mime };
 }
 
 app.post("/edit-image", async (req, res) => {
@@ -359,24 +388,59 @@ app.post("/edit-image", async (req, res) => {
   if (typeof imageUrl !== "string" && typeof imageBase64 !== "string") {
     return res.status(400).json({ error: "No image provided to edit" });
   }
+  const key = (process.env.POLLINATIONS_API_KEY || "").trim();
+  if (!key) {
+    return res.status(503).json({ error: "Image editing isn't set up yet: the server needs a POLLINATIONS_API_KEY (free at enter.pollinations.ai)." });
+  }
   try {
-    const sourceUrl = typeof imageUrl === "string" && imageUrl ? imageUrl : await uploadChatImage(imageBase64);
-    if (!/^https:\/\//.test(sourceUrl)) return res.status(400).json({ error: "Invalid image URL" });
+    const src = await loadEditSource({ imageUrl, imageBase64 });
 
-    const encoded = encodeURIComponent(prompt.trim().slice(0, 500)).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
-    const seed = Math.floor(Math.random() * 1e9);
-    const newImageUrl = `https://image.pollinations.ai/prompt/${encoded}?model=kontext&image=${encodeURIComponent(sourceUrl)}&width=768&height=768&nologo=true&seed=${seed}`;
-    res.json({ imageUrl: newImageUrl });
+    const form = new FormData();
+    form.append("image", new Blob([src.buf], { type: src.mime }), `image.${MIME_EXT[src.mime]}`);
+    form.append("prompt", prompt.trim().slice(0, 500));
+    form.append("model", process.env.EDIT_MODEL || "kontext");
+    const r = await fetch("https://gen.pollinations.ai/v1/images/edits", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}` },
+      body: form,
+      signal: AbortSignal.timeout(120000),
+    });
+    const raw = await r.text();
+    let json = null;
+    try { json = JSON.parse(raw); } catch (_) {}
+    if (!r.ok) {
+      const detail = (json && (json.error && (json.error.message || json.error))) || raw.slice(0, 200);
+      console.error("Pollinations edit failed:", r.status, raw.slice(0, 500));
+      return res.status(502).json({ error: `Image edit service error (${r.status}). ${typeof detail === "string" ? detail.slice(0, 160) : ""}`.trim() });
+    }
+
+    const item = json && Array.isArray(json.data) ? json.data[0] : null;
+    let out;
+    if (item && item.b64_json) out = Buffer.from(item.b64_json, "base64");
+    else if (item && item.url) {
+      const ir = await fetch(item.url, { signal: AbortSignal.timeout(60000) });
+      if (!ir.ok) throw new Error("Couldn't download the edited image.");
+      out = Buffer.from(await ir.arrayBuffer());
+    } else {
+      console.error("Unexpected edit response:", raw.slice(0, 500));
+      return res.status(502).json({ error: "The image edit service returned no image." });
+    }
+
+    const mime = sniffImageMime(out) || "image/png";
+    const filePath = `edits/${Date.now()}-${Math.random().toString(36).slice(2)}.${MIME_EXT[mime]}`;
+    const { error: upErr } = await supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).upload(filePath, out, { contentType: mime, cacheControl: "31536000", upsert: false });
+    if (upErr) throw new Error("Couldn't save the edited image: " + upErr.message);
+    const publicUrl = supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).getPublicUrl(filePath).data.publicUrl;
+    res.json({ imageUrl: publicUrl });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message || "Image editing failed" });
+    console.error("Image edit failed:", err);
+    res.status(500).json({ error: (err && err.message) || "Image editing failed" });
   }
 });
 
 // --- VIDEO GENERATION ("/video") ---
 // Uses Pollinations' video models (Seedance by default; still alpha as of
-// writing). Works on the free tier, but set POLLINATIONS_API_KEY for higher
-// limits/quality if you have one. "agent1102video=1" is a marker so the
+// writing). "agent1102video=1" is a marker so the
 // front end (render.js) can tell a video link apart from a plain image link.
 app.post("/generate-video", async (req, res) => {
   const { prompt } = req.body;
@@ -385,8 +449,7 @@ app.post("/generate-video", async (req, res) => {
     const encoded = encodeURIComponent(prompt.trim().slice(0, 500)).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
     const seed = Math.floor(Math.random() * 1e9);
     const model = process.env.VIDEO_MODEL || "seedance";
-    const keyParam = process.env.POLLINATIONS_API_KEY ? `&key=${encodeURIComponent(process.env.POLLINATIONS_API_KEY)}` : "";
-    const videoUrl = `https://image.pollinations.ai/prompt/${encoded}?model=${model}&seed=${seed}&agent1102video=1${keyParam}`;
+    const videoUrl = `https://image.pollinations.ai/prompt/${encoded}?model=${model}&seed=${seed}&agent1102video=1`;
     res.json({ videoUrl });
   } catch (err) {
     console.error(err);
