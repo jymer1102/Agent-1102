@@ -21,6 +21,19 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// Render's env-var box happily keeps stray whitespace, quotes, or a trailing
+// slash from a copy-paste, and any of them breaks Supabase ("Invalid API key",
+// "Invalid path specified in request URL"). Clean them up before use.
+const cleanEnv = v => (v || "").trim().replace(/^["']|["']$/g, "").trim();
+process.env.SUPABASE_URL = cleanEnv(process.env.SUPABASE_URL).replace(/\/+$/, "");
+try {
+  // Keep only scheme + host: supabase-js appends /auth/v1, /rest/v1, etc. itself,
+  // so a pasted "…supabase.co/rest/v1/" would otherwise produce invalid paths.
+  if (process.env.SUPABASE_URL) process.env.SUPABASE_URL = new URL(process.env.SUPABASE_URL).origin;
+} catch (_) { /* leave as-is; the startup check below will report it */ }
+process.env.SUPABASE_ANON_KEY = cleanEnv(process.env.SUPABASE_ANON_KEY);
+process.env.SUPABASE_SERVICE_KEY = cleanEnv(process.env.SUPABASE_SERVICE_KEY);
+
 const REQUIRED_ENV = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_KEY"];
 const missingEnv = REQUIRED_ENV.filter(k => !process.env[k] || !process.env[k].trim());
 if (missingEnv.length) {
