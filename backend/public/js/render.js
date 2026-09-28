@@ -609,7 +609,9 @@
   function isGeneratedImageUrl(src) {
     try {
       const u = new URL(src, location.href);
-      return u.protocol === "https:" && u.hostname === GEN_IMAGE_HOST;
+      if (u.protocol !== "https:") return false;
+      // Pollinations-generated images, or /edit results saved in our storage bucket
+      return u.hostname === GEN_IMAGE_HOST || u.pathname.startsWith("/storage/v1/object/public/chat-uploads/");
     } catch (_) { return false; }
   }
 
