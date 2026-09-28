@@ -407,7 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // History as the server should see it. Generated images/videos are just a
   // URL in our history, so the AI is told about them in words instead.
-  const GENERATED_IMG = /^!\[([^\]]*)\]\(https:\/\/image\.pollinations\.ai\/[^)]*\)$/;
+  const GENERATED_IMG = /^!\[([^\]]*)\]\(https:\/\/(?:image\.pollinations\.ai\/|[^)\/]+\/storage\/v1\/object\/public\/chat-uploads\/)[^)]*\)$/;
   const GENERATED_VIDEO = /^\[([^\]]*)\]\(https:\/\/image\.pollinations\.ai\/[^)]*\)$/;
   function messagesForServer() {
     return history.map(m => {
@@ -458,7 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Finds the most recent image the AI generated or edited in this chat, so
   // "/edit ..." with nothing attached knows what to edit.
-  const GENERATED_IMG_URL = /!\[[^\]]*\]\((https:\/\/image\.pollinations\.ai\/[^)]*)\)/g;
+  const GENERATED_IMG_URL = /!\[[^\]]*\]\((https:\/\/(?:image\.pollinations\.ai\/|[^)\/]+\/storage\/v1\/object\/public\/chat-uploads\/)[^)]*)\)/g;
   function lastGeneratedImageUrl() {
     for (let i = history.length - 1; i >= 0; i--) {
       const m = history[i];
