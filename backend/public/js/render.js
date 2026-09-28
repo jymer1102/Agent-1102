@@ -672,22 +672,58 @@
   /*  its own line) is shown as a small card with an Open button */
   /*  rather than auto-loading its content.                      */
   /* ---------------------------------------------------------- */
+  const linkPreviewCache = new Map(); // url -> Promise<preview>
+  function fetchLinkPreview(href) {
+    if (!linkPreviewCache.has(href)) {
+      const p = fetch(`${BACKEND_URL}/link-preview?url=${encodeURIComponent(href)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null);
+      linkPreviewCache.set(href, p);
+    }
+    return linkPreviewCache.get(href);
+  }
+
   function buildLinkCard(href, label) {
     let hostname = href;
     try { hostname = new URL(href, location.href).hostname.replace(/^www\./, ""); } catch (_) {}
+    const fallbackTitle = (label || "").trim();
 
-    const card = el("div", "link-card");
+    const card = el("div", "link-card loading");
+    const image = el("div", "link-card-image");
+    const row = el("div", "link-card-row");
     const icon = el("div", "link-card-icon");
     icon.innerHTML = '<i class="fa-solid fa-link"></i>';
     const body = el("div", "link-card-body");
     const title = el("div", "link-card-title");
-    title.textContent = (label || hostname || href).trim() || href;
+    title.textContent = fallbackTitle && fallbackTitle !== href ? fallbackTitle : hostname;
     const host = el("div", "link-card-host");
     host.textContent = hostname;
     body.append(title, host);
     const open = makeBtn("code-btn link-card-open", "fa-arrow-up-right-from-square", "Open", "Open link");
     open.addEventListener("click", () => window.open(href, "_blank", "noopener"));
-    card.append(icon, body, open);
+    row.append(icon, body, open);
+    const desc = el("div", "link-card-desc");
+    desc.style.padding = "0 0.7rem 0.6rem";
+    card.append(image, row, desc);
+
+    fetchLinkPreview(href).then(info => {
+      card.classList.remove("loading");
+      if (!info) return;
+      if (info.title) title.textContent = info.title;
+      if (info.siteName) host.textContent = info.siteName === hostname ? hostname : `${info.siteName} · ${hostname}`;
+      if (info.description) desc.textContent = info.description;
+      if (info.image) {
+        // Load through an <img> first so a broken image never leaves an empty box.
+        const probe = new Image();
+        probe.referrerPolicy = "no-referrer";
+        probe.onload = () => {
+          image.style.backgroundImage = `url("${info.image.replace(/"/g, "%22")}")`;
+          card.classList.add("has-image");
+          scrollChat();
+        };
+        probe.src = info.image;
+      }
+    });
     return card;
   }
 
@@ -806,6 +842,27 @@
       const wrap = el("div", "table-wrap");
       table.replaceWith(wrap);
       wrap.appendChild(table);
+    });
+
+    // Links that sit on their own (alone in a paragraph / list item, or one per line)
+    // become preview cards. Links inside a sentence stay ordinary inline links.
+    const isBlank = n => n.nodeType === 3 && !n.textContent.trim();
+    const isLinkish = n => n.nodeName === "BR" || isBlank(n) || (n.nodeName === "A" && /^https?:/i.test(n.getAttribute("href") || ""));
+    root.querySelectorAll("p, li").forEach(block => {
+      if (block.closest(".link-cards, .link-card, .code-block, .chart-block")) return;
+      const kids = [...block.childNodes];
+      const anchors = kids.filter(n => n.nodeName === "A");
+      if (!anchors.length || !kids.every(isLinkish)) return;
+      const box = el("div", "link-cards");
+      const seen = new Set();
+      anchors.forEach(a => {
+        const href = a.href;
+        if (seen.has(href)) return;
+        seen.add(href);
+        const text = a.textContent.trim();
+        box.appendChild(buildLinkCard(href, text === a.getAttribute("href") ? "" : text));
+      });
+      block.replaceChildren(box);
     });
 
     root.querySelectorAll("a[href]").forEach(a => {
@@ -1418,6 +1475,21 @@
       });
 
       actions.append(ttsButton, copyBtn, dlBtn);
+
+      // "Try again": only when a user message came before this reply (not the greeting).
+      // Drops this reply (and anything after it) and asks for a fresh one.
+      const hasUserBefore = typeof history !== "undefined" && Array.isArray(history) && msgIndex != null &&
+        history.slice(0, msgIndex).some(m => m && m.role === "user");
+      if (hasUserBefore) {
+        const retryBtn = makeBtn("msg-action-btn retry-btn", "fa-rotate-right", "", "Try again");
+        retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i><span class="retry-label">Try again</span>';
+        retryBtn.addEventListener("click", () => {
+          if (typeof window.retryFrom !== "function") return;
+          retryBtn.classList.add("spinning");
+          Promise.resolve(window.retryFrom(msgIndex, wrap)).finally(() => retryBtn.classList.remove("spinning"));
+        });
+        actions.appendChild(retryBtn);
+      }
       wrap.appendChild(actions);
     }
 
