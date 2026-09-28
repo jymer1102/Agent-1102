@@ -439,21 +439,47 @@ app.post("/edit-image", async (req, res) => {
 });
 
 // --- VIDEO GENERATION ("/video") ---
-// Uses Pollinations' video models (Seedance by default; still alpha as of
-// writing). "agent1102video=1" is a marker so the
-// front end (render.js) can tell a video link apart from a plain image link.
+// Runs on the server for the same reason /edit-image does: Pollinations'
+// video endpoint (gen.pollinations.ai) needs an API key that must never
+// reach the browser. It responds with the raw MP4 bytes directly (not a
+// browser-loadable URL), so we save those bytes to the public "chat-uploads"
+// Supabase Storage bucket and hand the chat a URL to that copy instead.
+// VIDEO_MODEL / VIDEO_DURATION / VIDEO_ASPECT let you tune this without a
+// code change; defaults are chosen to work across most models Pollinations
+// lists (see gen.pollinations.ai/docs, "Video" section).
 app.post("/generate-video", async (req, res) => {
   const { prompt } = req.body;
   if (typeof prompt !== "string" || !prompt.trim()) return res.status(400).json({ error: "No prompt provided" });
+  const key = (process.env.POLLINATIONS_API_KEY || "").trim();
+  if (!key) {
+    return res.status(503).json({ error: "Video generation isn't set up yet: the server needs a POLLINATIONS_API_KEY (free at enter.pollinations.ai)." });
+  }
   try {
-    const encoded = encodeURIComponent(prompt.trim().slice(0, 500)).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase());
-    const seed = Math.floor(Math.random() * 1e9);
-    const model = process.env.VIDEO_MODEL || "seedance";
-    const videoUrl = `https://image.pollinations.ai/prompt/${encoded}?model=${model}&seed=${seed}&agent1102video=1`;
-    res.json({ videoUrl });
+    const encoded = encodeURIComponent(prompt.trim().slice(0, 500));
+    const model = process.env.VIDEO_MODEL || "bytedance/seedance-2.0-fast";
+    const duration = process.env.VIDEO_DURATION || "4";
+    const aspectRatio = process.env.VIDEO_ASPECT || "16:9";
+    const url = `https://gen.pollinations.ai/video/${encoded}?model=${encodeURIComponent(model)}&duration=${encodeURIComponent(duration)}&aspectRatio=${encodeURIComponent(aspectRatio)}`;
+
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(180000) });
+    if (!r.ok) {
+      const raw = await r.text();
+      let detail = raw.slice(0, 200);
+      try { const j = JSON.parse(raw); detail = (j.error && (j.error.message || j.error)) || detail; } catch (_) {}
+      console.error("Pollinations video failed:", r.status, raw.slice(0, 500));
+      return res.status(502).json({ error: `Video service error (${r.status}). ${typeof detail === "string" ? detail.slice(0, 160) : ""}`.trim() });
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length < 1000) return res.status(502).json({ error: "The video service returned an empty file." });
+
+    const filePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
+    const { error: upErr } = await supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).upload(filePath, buf, { contentType: "video/mp4", cacheControl: "31536000", upsert: false });
+    if (upErr) throw new Error("Couldn't save the video: " + upErr.message);
+    const publicUrl = supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).getPublicUrl(filePath).data.publicUrl;
+    res.json({ videoUrl: `${publicUrl}?agent1102video=1` });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Video generation failed" });
+    console.error("Video generation failed:", err);
+    res.status(500).json({ error: (err && err.message) || "Video generation failed" });
   }
 });
 
