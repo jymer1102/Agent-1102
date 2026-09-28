@@ -327,7 +327,6 @@ button:hover, .icon-btn:hover, .tool-btn:hover, .msg-action-btn:hover, .history-
 .link-card-title { font-size:0.9rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .link-card-host { font-size:0.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .link-card-open { flex-shrink:0; }
-.video-card video { display:block; width:100%; height:auto; background:#000; }
 
 /* ============================================================
    Full-width header + footer bars (light-mode dividers, phone safe areas)
