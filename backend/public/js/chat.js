@@ -516,41 +516,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function generateVideo(typed, prompt) {
-    addMsg("user", typed);
-    history.push({ role: "user", content: typed });
-    input.value = "";
-
-    if (!prompt) {
-      const tip = "What should the video show? Describe it and I'll create it, for example: **/video a rocket launching into space**";
-      addMsg("ai", tip);
-      history.push({ role: "assistant", content: tip });
-      if (typeof saveCurrentChat === "function") saveCurrentChat();
-      return;
-    }
-
-    const thinking = addThinking("Creating your video... this can take a minute");
-    try {
-      const res = await fetch(`${BACKEND_URL}/generate-video`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
-      const data = await res.json();
-      thinking.wrap.remove();
-      if (!data.videoUrl) { addMsg("ai", data.error || "Video generation failed. Please try again."); return; }
-      const alt = prompt.replace(/[\[\]\r\n]+/g, " ").slice(0, 200);
-      const url = data.videoUrl.replace(/\(/g, "%28").replace(/\)/g, "%29");
-      const md = `[${alt}](${url})`;
-      addMsg("ai", md);
-      history.push({ role: "assistant", content: md });
-      if (typeof saveCurrentChat === "function") saveCurrentChat();
-    } catch {
-      thinking.text.classList.remove("thinking");
-      thinking.text.textContent = "Error reaching the server. Is your backend running?";
-    }
-  }
-
   async function sendMessage() {
     if (sending) return;
     const typed = input.value.trim();
@@ -562,12 +527,10 @@ document.addEventListener("DOMContentLoaded", () => {
     sending = true;
     btn.disabled = true;
     try {
-      // 1) Is the user asking for an image to be created, an image edited, or a video made?
+      // 1) Is the user asking for an image to be created or an existing one edited?
       if (!hasImage && !files.length) {
         const editReq = Agent1102Render.parseImageEditRequest(typed);
         if (editReq) { await editImage(typed, editReq.prompt, null); return; }
-        const videoReq = Agent1102Render.parseVideoRequest(typed);
-        if (videoReq) { await generateVideo(typed, videoReq.prompt); return; }
         const req = Agent1102Render.parseImageRequest(typed);
         if (req) { await generateImage(typed, req.prompt); return; }
       } else if (hasImage && images.length === 1 && !files.length) {
