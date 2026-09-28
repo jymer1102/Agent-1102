@@ -497,7 +497,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const src = lastGeneratedImageUrl();
         if (!src) {
           thinking.wrap.remove();
-          addMsg("ai", "Attach an image (<i class="fa-solid fa-paperclip"></i>) to edit, or generate one first with **/image**, then use **/edit** on it.");
+         addMsg("ai", "Attach an image (<i class='fa-solid fa-paperclip'></i>) to edit, or generate one first with **/image**, then use **/edit** on it.");
           return;
         }
         body.imageUrl = src;
