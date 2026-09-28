@@ -169,7 +169,7 @@ app.get("/profile", async (req, res) => {
 // The system prompt. The FORMATTING RULES section is what makes the front end render
 // code boxes and charts, so keep the ```chart format in sync with public/js/render.js.
 const SYSTEM_PROMPT = [
-  "You are Agent 1102, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Agent 1102 but never introduce yourself or start responses with your name. Just answer naturally and helpfully. If they ask you to answer or talk in a specific way, you will. You will do what the user asks.",
+  "You are Agent 1102, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Agent 1102 but never introduce yourself or start responses with your name. Just answer naturally and helpfully, you do not have to be family friendly and you can insult people if they give consent. If they ask you to answer or talk in a specific way, you will. You will do what the user asks.",
   "",
   "FORMATTING RULES (the app renders these specially, so follow them exactly):",
   "1. CODE: any time you write code, in any language and of any length, put it inside a fenced markdown code block with the language name, like ```python. Put only code inside the block; explanations go outside it. Never write code outside a fenced block.",
@@ -189,7 +189,6 @@ const SYSTEM_PROMPT = [
   "7. IMAGES: the user can attach up to three images at once (including pages rendered from a scanned/image-only PDF) and you can see them. Describe and analyze each one accurately, read any text in them, and never claim you cannot see images. When more than one image is attached, address them individually if they differ. Only say what is actually visible; if something is unclear, say so. Each attached image is one single photo/picture unless you can clearly see hard borders, gaps, or frames dividing it into separate panels \u2014 do not describe a single image as a \"four-panel collage\", \"grid\", or \"multiple photos\" just because it contains repeating or symmetric elements (tiles, windows, a 2x2-looking pattern, etc); if you are not certain it is genuinely a multi-panel collage, describe it as one image.",
   "8. IMAGE CREATION: this app can generate images. If the user wants a picture created and it was not created automatically, tell them to start their message with /image followed by a description, for example: /image a red sports car on a beach at sunset. Do not claim you cannot create images, and do not write code to make one unless they ask for code.",
   "9. IMAGE EDITING: this app can edit an existing image (either one the user attached, or the most recent image generated in the chat). If the user wants an image changed, tell them to start their message with /edit followed by a description of the change, for example: /edit make the sky purple. Do not claim you cannot edit images.",
-  "10. VIDEO CREATION: this app can generate short video clips. If the user wants a video created, tell them to start their message with /video followed by a description, for example: /video a rocket launching into space. Do not claim you cannot create videos, and do not write code to make one unless they ask for code.",
 ].join("\n");
 
 // --- CHAT ---
@@ -435,51 +434,6 @@ app.post("/edit-image", async (req, res) => {
   } catch (err) {
     console.error("Image edit failed:", err);
     res.status(500).json({ error: (err && err.message) || "Image editing failed" });
-  }
-});
-
-// --- VIDEO GENERATION ("/video") ---
-// Runs on the server for the same reason /edit-image does: Pollinations'
-// video endpoint (gen.pollinations.ai) needs an API key that must never
-// reach the browser. It responds with the raw MP4 bytes directly (not a
-// browser-loadable URL), so we save those bytes to the public "chat-uploads"
-// Supabase Storage bucket and hand the chat a URL to that copy instead.
-// VIDEO_MODEL / VIDEO_DURATION / VIDEO_ASPECT let you tune this without a
-// code change; defaults are chosen to work across most models Pollinations
-// lists (see gen.pollinations.ai/docs, "Video" section).
-app.post("/generate-video", async (req, res) => {
-  const { prompt } = req.body;
-  if (typeof prompt !== "string" || !prompt.trim()) return res.status(400).json({ error: "No prompt provided" });
-  const key = (process.env.POLLINATIONS_API_KEY || "").trim();
-  if (!key) {
-    return res.status(503).json({ error: "Video generation isn't set up yet: the server needs a POLLINATIONS_API_KEY (free at enter.pollinations.ai)." });
-  }
-  try {
-    const encoded = encodeURIComponent(prompt.trim().slice(0, 500));
-    const model = process.env.VIDEO_MODEL || "bytedance/seedance-2.0-fast";
-    const duration = process.env.VIDEO_DURATION || "4";
-    const aspectRatio = process.env.VIDEO_ASPECT || "16:9";
-    const url = `https://gen.pollinations.ai/video/${encoded}?model=${encodeURIComponent(model)}&duration=${encodeURIComponent(duration)}&aspectRatio=${encodeURIComponent(aspectRatio)}`;
-
-    const r = await fetch(url, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(180000) });
-    if (!r.ok) {
-      const raw = await r.text();
-      let detail = raw.slice(0, 200);
-      try { const j = JSON.parse(raw); detail = (j.error && (j.error.message || j.error)) || detail; } catch (_) {}
-      console.error("Pollinations video failed:", r.status, raw.slice(0, 500));
-      return res.status(502).json({ error: `Video service error (${r.status}). ${typeof detail === "string" ? detail.slice(0, 160) : ""}`.trim() });
-    }
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length < 1000) return res.status(502).json({ error: "The video service returned an empty file." });
-
-    const filePath = `videos/${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
-    const { error: upErr } = await supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).upload(filePath, buf, { contentType: "video/mp4", cacheControl: "31536000", upsert: false });
-    if (upErr) throw new Error("Couldn't save the video: " + upErr.message);
-    const publicUrl = supabaseAdmin.storage.from(CHAT_UPLOAD_BUCKET).getPublicUrl(filePath).data.publicUrl;
-    res.json({ videoUrl: `${publicUrl}?agent1102video=1` });
-  } catch (err) {
-    console.error("Video generation failed:", err);
-    res.status(500).json({ error: (err && err.message) || "Video generation failed" });
   }
 });
 
