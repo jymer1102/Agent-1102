@@ -11,6 +11,8 @@ process.on('unhandledRejection', (err) => {
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const dns = require("dns").promises;
+const net = require("net");
 const { createClient } = require("@supabase/supabase-js");
 
 console.log(">>> Agent 1102 server build marker: signup-debug-v1 <<<");
@@ -189,6 +191,7 @@ const SYSTEM_PROMPT = [
   "7. IMAGES: the user can attach up to three images at once (including pages rendered from a scanned/image-only PDF) and you can see them. Describe and analyze each one accurately, read any text in them, and never claim you cannot see images. When more than one image is attached, address them individually if they differ. Only say what is actually visible; if something is unclear, say so. Each attached image is one single photo/picture unless you can clearly see hard borders, gaps, or frames dividing it into separate panels \u2014 do not describe a single image as a \"four-panel collage\", \"grid\", or \"multiple photos\" just because it contains repeating or symmetric elements (tiles, windows, a 2x2-looking pattern, etc); if you are not certain it is genuinely a multi-panel collage, describe it as one image.",
   "8. IMAGE CREATION: this app can generate images. If the user wants a picture created and it was not created automatically, tell them to start their message with /image followed by a description, for example: /image a red sports car on a beach at sunset. Do not claim you cannot create images, and do not write code to make one unless they ask for code.",
   "9. IMAGE EDITING: this app can edit an existing image (either one the user attached, or the most recent image generated in the chat). If the user wants an image changed, tell them to start their message with /edit followed by a description of the change, for example: /edit make the sky purple. Do not claim you cannot edit images.",
+  "10. ABOUT JYMER1102: if the user asks about jymer1102 (who they are, their site, their links, socials, projects, or how to contact them), share these two links, each as a plain URL on its own line so the app can show them as link preview cards: https://jymer1102.github.io/jymer1102 (their site) and https://linktr.ee/jymer1102 (all their links). Keep the text around them short and do not invent details about jymer1102 beyond what the links are.",
 ].join("\n");
 
 // --- CHAT ---
@@ -227,6 +230,14 @@ function prepareMessages(messages) {
 app.post("/chat", async (req, res) => {
   if (!Array.isArray(req.body.messages)) return res.status(400).json({ error: "No messages provided" });
   const { messages, hasImage } = prepareMessages(req.body.messages);
+  // If the latest user message mentions jymer1102, remind the model to include the two links.
+  const lastUser = [...messages].reverse().find(m => m && m.role === "user");
+  const lastUserText = !lastUser ? "" : typeof lastUser.content === "string" ? lastUser.content
+    : Array.isArray(lastUser.content) ? lastUser.content.map(p => (p && p.text) || "").join(" ") : "";
+  const mentionsJymer = /jymer\s*1102/i.test(lastUserText);
+  const systemPrompt = mentionsJymer
+    ? SYSTEM_PROMPT + "\n\nThe user's latest message is about jymer1102. Include both links, each as a plain URL on its own line: https://jymer1102.github.io/jymer1102 and https://linktr.ee/jymer1102"
+    : SYSTEM_PROMPT;
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
@@ -238,7 +249,7 @@ app.post("/chat", async (req, res) => {
         model: hasImage ? VISION_MODEL : TEXT_MODEL,
         max_tokens: 4096,
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...messages,
         ],
       }),
@@ -310,6 +321,114 @@ app.post("/title", async (req, res) => {
     console.error(err);
     res.status(500).json({ error: "Title generation failed" });
   }
+});
+
+// --- LINK PREVIEW (title / description / image for the cards under AI replies) ---
+// Fetches the page server-side (the browser can't, CORS) and reads its Open Graph tags.
+// SSRF-safe: http(s) only, public IPs only (re-checked on every redirect), small body, short timeout.
+const LINK_PREVIEW_TTL = 6 * 60 * 60 * 1000;
+const linkPreviewCache = new Map();
+// Sites that block bots: show a good card anyway.
+const KNOWN_PREVIEWS = {
+  "jymer1102.github.io": { title: "jymer1102", description: "jymer1102's website.", image: "/images/jymer1102_horizontal_banner.png", siteName: "jymer1102.github.io" },
+  "linktr.ee": { title: "jymer1102 | Linktree", description: "All of jymer1102's links in one place.", image: "/images/jymer1102_horizontal_banner.png", siteName: "Linktree" },
+};
+
+function isPrivateIp(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split(".").map(Number);
+    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  if (net.isIPv6(ip)) {
+    const v = ip.toLowerCase();
+    if (v === "::1" || v === "::" || v.startsWith("fc") || v.startsWith("fd") || v.startsWith("fe80")) return true;
+    const m = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(v);
+    return m ? isPrivateIp(m[1]) : false;
+  }
+  return true;
+}
+async function assertPublicUrl(u) {
+  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("bad protocol");
+  if (u.username || u.password) throw new Error("credentials in url");
+  const host = u.hostname.replace(/^\[|\]$/g, "");
+  if (net.isIP(host)) { if (isPrivateIp(host)) throw new Error("private address"); return; }
+  const addrs = await dns.lookup(host, { all: true });
+  if (!addrs.length || addrs.some(a => isPrivateIp(a.address))) throw new Error("private address");
+}
+async function fetchPageHtml(startUrl) {
+  let u = startUrl;
+  for (let i = 0; i < 4; i++) {
+    await assertPublicUrl(u);
+    const r = await fetch(u, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(6000),
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Agent1102LinkPreview/1.0)", "Accept": "text/html,application/xhtml+xml" },
+    });
+    if (r.status >= 300 && r.status < 400 && r.headers.get("location")) { u = new URL(r.headers.get("location"), u); continue; }
+    if (!r.ok) throw new Error("status " + r.status);
+    if (!/text\/html|application\/xhtml/i.test(r.headers.get("content-type") || "")) throw new Error("not html");
+    // read at most ~512KB
+    const reader = r.body.getReader();
+    const chunks = []; let total = 0;
+    while (total < 512 * 1024) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); total += value.length;
+    }
+    try { await reader.cancel(); } catch (_) {}
+    return { html: Buffer.concat(chunks.map(c => Buffer.from(c))).toString("utf8"), finalUrl: u };
+  }
+  throw new Error("too many redirects");
+}
+const decodeEntities = t => String(t || "")
+  .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'")
+  .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
+  .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(parseInt(d, 10)));
+function metaContent(html, keys) {
+  const tags = html.match(/<meta\b[^>]*>/gi) || [];
+  for (const key of keys) {
+    for (const tag of tags) {
+      const name = /(?:property|name)\s*=\s*["']([^"']+)["']/i.exec(tag);
+      if (!name || name[1].toLowerCase() !== key) continue;
+      const c = /content\s*=\s*("([^"]*)"|'([^']*)')/i.exec(tag);
+      const val = c && (c[2] ?? c[3]);
+      if (val && val.trim()) return decodeEntities(val).trim();
+    }
+  }
+  return "";
+}
+function parsePreview(html, finalUrl) {
+  const head = html.slice(0, 400 * 1024);
+  const titleTag = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(head);
+  const title = metaContent(head, ["og:title", "twitter:title"]) || decodeEntities(titleTag ? titleTag[1] : "").replace(/\s+/g, " ").trim();
+  const description = metaContent(head, ["og:description", "twitter:description", "description"]);
+  let image = metaContent(head, ["og:image", "og:image:url", "twitter:image", "twitter:image:src"]);
+  if (image) { try { const iu = new URL(image, finalUrl); image = /^https?:$/.test(iu.protocol) ? iu.href : ""; } catch (_) { image = ""; } }
+  const siteName = metaContent(head, ["og:site_name"]) || finalUrl.hostname.replace(/^www\./, "");
+  return { title: title.slice(0, 160), description: description.slice(0, 240), image, siteName: siteName.slice(0, 80) };
+}
+app.get("/link-preview", async (req, res) => {
+  let u;
+  try { u = new URL(String(req.query.url || "")); } catch (_) { return res.status(400).json({ error: "Invalid url" }); }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return res.status(400).json({ error: "Invalid url" });
+  const key = u.href;
+  const hit = linkPreviewCache.get(key);
+  if (hit && Date.now() - hit.at < LINK_PREVIEW_TTL) return res.json(hit.data);
+  const host = u.hostname.replace(/^www\./, "");
+  let data;
+  try {
+    const { html, finalUrl } = await fetchPageHtml(u);
+    data = parsePreview(html, finalUrl);
+  } catch (err) {
+    data = { title: "", description: "", image: "", siteName: host };
+  }
+  const known = KNOWN_PREVIEWS[host];
+  if (known && (host !== "linktr.ee" || /^\/jymer1102\/?$/i.test(u.pathname)) && (host !== "jymer1102.github.io" || /^\/jymer1102\/?$/i.test(u.pathname) || u.pathname === "/")) {
+    data = { title: data.title || known.title, description: data.description || known.description, image: data.image || known.image, siteName: data.siteName || known.siteName };
+  }
+  linkPreviewCache.set(key, { at: Date.now(), data });
+  if (linkPreviewCache.size > 500) linkPreviewCache.delete(linkPreviewCache.keys().next().value);
+  res.set("Cache-Control", "public, max-age=3600").json(data);
 });
 
 // --- IMAGE GENERATION ---
@@ -518,6 +637,10 @@ app.post("/auth/update", async (req, res) => {
       supabaseAdmin.from(table).update({ username: name }).eq("user_id", user.id)
     ));
   }
+  // and the identity columns on saved chats (ignore errors if the columns aren't added yet)
+  if (name || email) {
+    await supabaseAdmin.from("chats").update({ ...(name && { username: name }), ...(email && { email }) }).eq("user_id", user.id).then(() => {}, () => {});
+  }
 
   res.json({ success: true, user: data.user });
 });
@@ -590,7 +713,7 @@ app.delete("/auth/delete", async (req, res) => {
   const { data: userData, error: authErr } = await supabase.auth.getUser(token);
   if (authErr || !userData.user) return res.status(401).json({ error: "Unauthorized" });
   const userId = userData.user.id;
-  await supabase.from("chats").delete().eq("user_id", userId);
+  await supabaseAdmin.from("chats").delete().eq("user_id", userId);
   await removeUserAvatars(userId).catch(err => console.warn("Avatar cleanup failed:", err.message));
   await supabaseAdmin.from("profiles").delete().eq("id", userId);
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
@@ -667,49 +790,91 @@ app.post("/auth/login", async (req, res) => {
 });
 
 // --- CHATS ---
+// One row per conversation. Every row carries the owner's uid (user_id), username, email and phone,
+// plus the FULL conversation in `history` (jsonb). Run supabase/chats.sql once to add the columns
+// and lock the table down with Row Level Security. All access goes through the service key here,
+// always filtered by the user id taken from the verified token.
+async function getUserInfo(userId) {
+  const { data: p } = await supabaseAdmin.from("profiles").select("name, email, phone").eq("id", userId).maybeSingle();
+  let u = null;
+  if (!p?.name || !p?.email || !p?.phone) {
+    const { data: a } = await supabaseAdmin.auth.admin.getUserById(userId);
+    u = a?.user || null;
+  }
+  const email = p?.email || u?.email || null;
+  return {
+    username: p?.name || u?.user_metadata?.name || u?.user_metadata?.full_name || email?.split("@")[0] || "Player",
+    email,
+    phone: p?.phone || u?.phone || u?.user_metadata?.phone || null,
+  };
+}
+
+async function verifiedUserId(req) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return null;
+  const { data, error } = await supabase.auth.getUser(token);
+  return error || !data?.user ? null : data.user.id;
+}
+
 app.post("/chats", async (req, res) => {
-  const { id, title, history, author } = req.body;
+  const { id, title, history } = req.body;
+  if (!id || !Array.isArray(history)) return res.status(400).json({ error: "Missing chat id or history" });
   const authHeader = req.headers.authorization;
   const token = req.body.token || (authHeader && authHeader.split(" ")[1]);
   if (!token) return res.status(401).json({ error: "Unauthorized" });
   try {
     const userId = getUserIdFromToken(token);
     if (!userId) return res.status(401).json({ error: "Invalid token" });
-    const { error } = await supabaseAdmin.from("chats").upsert({
-      id, user_id: userId, title, history, author,
-      created_at: new Date().toISOString()
-    });
+    const info = await getUserInfo(userId);
+    const now = new Date().toISOString();
+    const row = {
+      id, user_id: userId,
+      username: info.username, email: info.email, phone: info.phone,
+      title, history,
+      created_at: now, updated_at: now,
+    };
+    let { error } = await supabaseAdmin.from("chats").upsert(row);
+    if (error && /column|schema cache/i.test(error.message)) {
+      // The new columns aren't there yet (supabase/chats.sql hasn't been run). Keep chats
+      // working with the old columns, and say so loudly in the logs.
+      console.warn("WARNING: chats table is missing username/email/phone/updated_at. Run supabase/chats.sql in the Supabase SQL editor. Saving without them for now.");
+      ({ error } = await supabaseAdmin.from("chats").upsert({ id, user_id: userId, title, history, created_at: now }));
+    }
     if (error) return res.status(500).json({ error: error.message });
     res.json({ success: true });
   } catch (err) {
+    console.error("Save chat failed:", err);
     res.status(500).json({ error: "Something went wrong" });
   }
 });
 
 app.get("/chats", async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: "Unauthorized" });
-  const { data, error } = await supabase.from("chats")
-    .select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-  if (error) return res.status(500).json({ error: error.message });
+  const userId = await verifiedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const { data, error } = await supabaseAdmin.from("chats")
+    .select("id, user_id, username, email, phone, title, history, created_at")
+    .eq("user_id", userId).order("created_at", { ascending: false });
+  if (error) {
+    // Older table without the new columns: fall back to select("*")
+    const legacy = await supabaseAdmin.from("chats").select("*").eq("user_id", userId).order("created_at", { ascending: false });
+    if (legacy.error) return res.status(500).json({ error: legacy.error.message });
+    return res.json({ chats: legacy.data });
+  }
   res.json({ chats: data });
 });
 
 app.delete("/chats/:id", async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: "Unauthorized" });
-  const { error } = await supabase.from("chats").delete().eq("id", req.params.id).eq("user_id", user.id);
+  const userId = await verifiedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const { error } = await supabaseAdmin.from("chats").delete().eq("id", req.params.id).eq("user_id", userId);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
 
 app.delete("/chats", async (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1];
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return res.status(401).json({ error: "Unauthorized" });
-  const { error } = await supabase.from("chats").delete().eq("user_id", user.id);
+  const userId = await verifiedUserId(req);
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  const { error } = await supabaseAdmin.from("chats").delete().eq("user_id", userId);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });
