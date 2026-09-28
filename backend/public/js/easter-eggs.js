@@ -81,7 +81,7 @@
   }
 });
 
-  // Easter egg — spinning backpack that bursts into stars
+  // Easter egg — spinning backpack that bursts into starbursts
   function triggerBackpackEgg() {
     const overlay = document.getElementById("backpack-egg-overlay");
     const wrap = document.getElementById("backpack-egg-wrap");
@@ -95,7 +95,7 @@
       overlay.classList.remove("active");
       wrap.classList.remove("spinning");
       label.classList.remove("visible");
-      burstBackpackStars();
+      burstBackpackParticles();
     }, 1900);
   }
 
@@ -110,22 +110,25 @@
     backpackCanvas.height = window.innerHeight;
   });
 
-  // Font Awesome solid star (free set) and a vector fallback of the same shape
-  const FA_STAR_CHAR = "\uf005";
-  const STAR_PATH = new Path2D("M316.9 18C311.6 7 300.4 0 288 0s-23.6 7-28.9 18L182.7 170 10.5 195.1c-12.4 1.8-22.3 10.7-25.2 22.8s1.4 24.7 11 33.1L121 371.1 91.7 502.3c-2.1 12.3 2.9 24.7 12.9 31.8s23 7.3 33.5 1.7L288 458.1l150 78.8c10.5 5.5 23.5 5.4 33.5-.7s15-19.5 12.9-31.8L455 371.1l124.7-120.2c9.6-8.4 13.9-21 11-33.1s-12.8-21-25.2-22.8L393.3 170 316.9 18z");
-
-  // Reads the font family from an existing .fa-solid element so it matches
-  // whichever Font Awesome version the HTML loads
-  function getFaFont(size) {
-    const el = document.querySelector(".fa-solid");
-    const family = el ? getComputedStyle(el).fontFamily : '"Font Awesome 6 Free"';
-    return `900 ${size}px ${family}`;
+  // A jagged "burst" shape (like an explosion / comic-book POW), drawn as a
+  // canvas path so it doesn't depend on any icon font. Unit radius = 1;
+  // spike tips alternate with shallow notches, with a little jitter so
+  // every burst looks slightly different.
+  function makeBurstPath() {
+    const spikes = 8 + Math.floor(Math.random() * 5);   // 8-12 points
+    const notch = 0.45 + Math.random() * 0.2;           // how deep the notches cut in
+    const path = new Path2D();
+    for (let i = 0; i < spikes * 2; i++) {
+      const angle = (Math.PI * i) / spikes;
+      const r = i % 2 === 0 ? 1 - Math.random() * 0.15 : notch;
+      const x = Math.cos(angle) * r, y = Math.sin(angle) * r;
+      if (i === 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    path.closePath();
+    return path;
   }
 
-  async function burstBackpackStars() {
-    // Canvas text doesn't trigger font loading, so load the icon font first
-    try { await document.fonts.load(getFaFont(20), FA_STAR_CHAR); } catch (e) {}
-
+  function burstBackpackParticles() {
     backpackParticles = [];
     cancelAnimationFrame(backpackAnimId);
     const cx = window.innerWidth / 2;
@@ -143,17 +146,15 @@
         rot: Math.random() * Math.PI * 2,
         rotV: (Math.random() - 0.5) * 0.3,
         color: Math.random() < 0.5 ? "#FFD700" : "#FFA500",
+        shape: makeBurstPath(),
       });
     }
-    animateBackpackStars();
+    animateBackpackParticles();
   }
 
-  function animateBackpackStars() {
+  function animateBackpackParticles() {
     backpackCtx.clearRect(0, 0, backpackCanvas.width, backpackCanvas.height);
     backpackParticles = backpackParticles.filter(p => p.alpha > 0.02);
-
-    // If the icon font still isn't available, draw the star as a vector path instead
-    const fontReady = document.fonts.check(getFaFont(20), FA_STAR_CHAR);
 
     for (const p of backpackParticles) {
       p.x += p.vx; p.y += p.vy;
@@ -164,19 +165,10 @@
       backpackCtx.translate(p.x, p.y);
       backpackCtx.rotate(p.rot);
       backpackCtx.fillStyle = p.color;
-      if (fontReady) {
-        backpackCtx.font = getFaFont(p.size);
-        backpackCtx.textAlign = "center";
-        backpackCtx.textBaseline = "middle";
-        backpackCtx.fillText(FA_STAR_CHAR, 0, 0);
-      } else {
-        const s = p.size / 512;            // scale path to particle size
-        backpackCtx.scale(s, s);
-        backpackCtx.translate(-288, -256); // center the 576x512 path
-        backpackCtx.fill(STAR_PATH);
-      }
+      backpackCtx.scale(p.size / 2, p.size / 2);  // shape is unit-radius
+      backpackCtx.fill(p.shape);
       backpackCtx.restore();
     }
-    if (backpackParticles.length > 0) backpackAnimId = requestAnimationFrame(animateBackpackStars);
+    if (backpackParticles.length > 0) backpackAnimId = requestAnimationFrame(animateBackpackParticles);
     else backpackCtx.clearRect(0, 0, backpackCanvas.width, backpackCanvas.height);
   }
