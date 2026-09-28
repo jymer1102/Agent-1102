@@ -421,10 +421,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  async function generateImage(typed, prompt) {
-    addMsg("user", typed);
-    history.push({ role: "user", content: typed });
-    input.value = "";
+  async function generateImage(typed, prompt, opts) {
+    opts = opts || {};
+    if (!opts.skipUser) {
+      addMsg("user", typed);
+      history.push({ role: "user", content: typed });
+      input.value = "";
+    }
 
     if (!prompt) {
       const tip = "What should the image show? Describe it and I'll create it, for example: **/image a red sports car on a beach at sunset**";
@@ -469,11 +472,14 @@ document.addEventListener("DOMContentLoaded", () => {
     return null;
   }
 
-  async function editImage(typed, prompt, attachedImage) {
-    addMsg("user", typed, attachedImage ? [`data:${attachedImage.type};base64,${attachedImage.base64}`] : null);
-    history.push({ role: "user", content: typed });
-    input.value = "";
-    clearAttachments();
+  async function editImage(typed, prompt, attachedImage, opts) {
+    opts = opts || {};
+    if (!opts.skipUser) {
+      addMsg("user", typed, attachedImage ? [`data:${attachedImage.type};base64,${attachedImage.base64}`] : null);
+      history.push({ role: "user", content: typed });
+      input.value = "";
+      clearAttachments();
+    }
 
     if (!prompt) {
       const tip = "What should I change? Describe the edit, for example: **/edit make the sky purple**";
@@ -515,6 +521,61 @@ document.addEventListener("DOMContentLoaded", () => {
       thinking.text.textContent = "Error reaching the server. Is your backend running?";
     }
   }
+
+  // Asks the AI to answer the conversation as it stands (last history entry is the user's message).
+  async function requestReply(label) {
+    const thinking = addThinking(label || "Thinking...");
+    try {
+      const res = await fetch(`${BACKEND_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: messagesForServer() }),
+      });
+      const data = await res.json();
+      const reply = data.reply || data.error || "Something went wrong.";
+
+      thinking.wrap.remove();
+      addMsg("ai", reply); // errors get a "Try again" button too (they aren't stored in history)
+
+      if (data.reply) history.push({ role: "assistant", content: reply });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+    } catch {
+      thinking.wrap.remove();
+      addMsg("ai", "Error reaching the server. Is your backend running?");
+    }
+  }
+
+  // "Try again": throw away the AI reply at `msgIndex` (and everything after it), then get a new one
+  // for the user message before it. Slash commands (/image, /edit) are re-run the same way.
+  window.retryFrom = async function retryFrom(msgIndex, wrap) {
+    if (sending) return;
+    const cut = Math.min(msgIndex, history.length);
+    const last = history[cut - 1];
+    if (!last || last.role !== "user") return;
+
+    sending = true;
+    btn.disabled = true;
+    try {
+      history = history.slice(0, cut);
+      let node = wrap;
+      while (node) { const next = node.nextSibling; node.remove(); node = next; }
+
+      const text = typeof last.content === "string" ? last.content
+        : (last.content || []).filter(p => p && p.type === "text").map(p => p.text).join("\n");
+      const hasImg = Array.isArray(last.content) && last.content.some(p => p && p.type === "image_url");
+
+      if (!hasImg && !/<attached_file/.test(text)) {
+        const editReq = Agent1102Render.parseImageEditRequest(text);
+        if (editReq) { await editImage(text, editReq.prompt, null, { skipUser: true }); return; }
+        const imgReq = Agent1102Render.parseImageRequest(text);
+        if (imgReq) { await generateImage(text, imgReq.prompt, { skipUser: true }); return; }
+      }
+      await requestReply(hasImg ? "Looking at your image..." : "Thinking...");
+    } finally {
+      sending = false;
+      btn.disabled = false;
+    }
+  };
 
   async function sendMessage() {
     if (sending) return;
@@ -560,26 +621,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       input.value = "";
       clearAttachments();
-      const thinking = addThinking(hasImage ? "Looking at your image" + (imgSrcs.length > 1 ? "s..." : "...") : "Thinking...");
-
-      try {
-        const res = await fetch(`${BACKEND_URL}/chat`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: messagesForServer() }),
-        });
-        const data = await res.json();
-        const reply = data.reply || data.error || "Something went wrong.";
-
-        thinking.wrap.remove();
-        addMsg("ai", reply);
-
-        if (data.reply) history.push({ role: "assistant", content: reply });
-        if (typeof saveCurrentChat === "function") saveCurrentChat();
-      } catch {
-        thinking.text.classList.remove("thinking");
-        thinking.text.textContent = "Error reaching the server. Is your backend running?";
-      }
+      await requestReply(hasImage ? "Looking at your image" + (imgSrcs.length > 1 ? "s..." : "...") : "Thinking...");
     } finally {
       sending = false;
       btn.disabled = false;
