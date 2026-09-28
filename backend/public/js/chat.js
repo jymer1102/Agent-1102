@@ -408,7 +408,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // History as the server should see it. Generated images/videos are just a
   // URL in our history, so the AI is told about them in words instead.
   const GENERATED_IMG = /^!\[([^\]]*)\]\(https:\/\/(?:image\.pollinations\.ai\/|[^)\/]+\/storage\/v1\/object\/public\/chat-uploads\/)[^)]*\)$/;
-  const GENERATED_VIDEO = /^\[([^\]]*)\]\(https:\/\/image\.pollinations\.ai\/[^)]*\)$/;
+  const GENERATED_VIDEO = /^\[([^\]]*)\]\(https:\/\/(?:image\.pollinations\.ai\/|[^)\/]+\/storage\/v1\/object\/public\/chat-uploads\/)[^)]*\)$/;
   function messagesForServer() {
     return history.map(m => {
       if (m.role === "assistant" && typeof m.content === "string") {
