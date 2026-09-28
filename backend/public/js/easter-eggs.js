@@ -1,28 +1,39 @@
 // Easter egg — background (horizontal / vertical banner)
+  // Two separate flags: "unlocked" (the button stays for good once you find it) and
+  // "active" (whether the background is currently showing).
   let easterActive = localStorage.getItem("agent1102_easter") === "true";
+  let easterUnlocked = localStorage.getItem("agent1102_easter_unlocked") === "true" || easterActive; // older saves only had "active"
+  if (easterUnlocked) localStorage.setItem("agent1102_easter_unlocked", "true");
   const easterBtn = document.createElement("button");
-  easterBtn.className = "icon-btn"; easterBtn.title = "Toggle background"; easterBtn.innerHTML = '<i class="fa-solid fa-image"></i>'; easterBtn.style.display = easterActive ? "block" : "none";
+  easterBtn.className = "icon-btn"; easterBtn.title = "Toggle background"; easterBtn.innerHTML = '<i class="fa-solid fa-image"></i>'; easterBtn.style.display = easterUnlocked ? "flex" : "none";
   headerBtns.prepend(easterBtn);
 
   // backend/public is the static root, so URLs start at /images/
   const BG_HORIZONTAL = "/images/jymer1102_horizontal_banner.png";
   const BG_VERTICAL   = "/images/jymer1102_vertical_banner.png";
   const portraitQuery = window.matchMedia("(orientation: portrait)");
+  const bgLayer = document.getElementById("bg-layer"); // blurred in style.css (--bg-blur)
 
   function applyEaster() {
     if (easterActive) {
       const img = portraitQuery.matches ? BG_VERTICAL : BG_HORIZONTAL;
-      document.body.style.setProperty(
-        "background",
-        `url('${img}') center/cover no-repeat fixed`,
-        "important"
-      );
+      bgLayer.style.backgroundImage = `url('${img}')`;
+      bgLayer.style.display = "block";
     } else {
-      document.body.style.removeProperty("background");
+      bgLayer.style.display = "none";
+      bgLayer.style.backgroundImage = "";
     }
   }
 
-  function toggleEaster() { easterActive = !easterActive; localStorage.setItem("agent1102_easter", easterActive); applyEaster(); easterBtn.style.display = "block"; }
+  function toggleEaster() {
+    easterActive = !easterActive;
+    localStorage.setItem("agent1102_easter", easterActive);
+    // First time: unlock the button permanently. Turning the background off never hides it again.
+    easterUnlocked = true;
+    localStorage.setItem("agent1102_easter_unlocked", "true");
+    easterBtn.style.display = "flex";
+    applyEaster();
+  }
 
   // Swap image when the device rotates or the window is resized across orientations
   portraitQuery.addEventListener("change", applyEaster);
@@ -52,7 +63,7 @@
   if (val === "jymer1102") { 
     input.value = ""; 
     toggleEaster(); 
-    showToast(easterActive ? 'Easter egg unlocked! <i class="fa-solid fa-lock-open"></i>' : "Background off!"); 
+    showToast(easterActive ? 'Easter egg unlocked! <i class="fa-solid fa-lock-open"></i> Use the image button to toggle it anytime.' : "Background off! The image button stays so you can turn it back on."); 
   }
 
   if (val === "dinosaur" || val === "trex" || val === "t-rex") { 
