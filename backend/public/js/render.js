@@ -678,7 +678,8 @@
   function isGeneratedVideoUrl(src) {
     try {
       const u = new URL(src, location.href);
-      return u.protocol === "https:" && u.hostname === GEN_IMAGE_HOST && u.searchParams.get("agent1102video") === "1";
+      if (u.protocol !== "https:" || u.searchParams.get("agent1102video") !== "1") return false;
+      return u.hostname === GEN_IMAGE_HOST || u.pathname.startsWith("/storage/v1/object/public/chat-uploads/");
     } catch (_) { return false; }
   }
 
