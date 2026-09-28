@@ -163,17 +163,11 @@
   }
 
   /* ---------------------------------------------------------- */
-  /*  "/edit" (image editing) and "/video" command detection     */
+  /*  "/edit" (image editing) command detection                  */
   /* ---------------------------------------------------------- */
   function parseImageEditRequest(raw) {
     const t = String(raw || "").trim();
     const m = t.match(/^\/edit\b\s*([\s\S]*)$/i);
-    return m ? { prompt: tidyPrompt(m[1]) } : null;
-  }
-
-  function parseVideoRequest(raw) {
-    const t = String(raw || "").trim();
-    const m = t.match(/^\/video\b\s*([\s\S]*)$/i);
     return m ? { prompt: tidyPrompt(m[1]) } : null;
   }
 
@@ -673,69 +667,6 @@
   }
 
   /* ---------------------------------------------------------- */
-  /*  Generated videos ("/video" command)                        */
-  /* ---------------------------------------------------------- */
-  function isGeneratedVideoUrl(src) {
-    try {
-      const u = new URL(src, location.href);
-      if (u.protocol !== "https:" || u.searchParams.get("agent1102video") !== "1") return false;
-      return u.hostname === GEN_IMAGE_HOST || u.pathname.startsWith("/storage/v1/object/public/chat-uploads/");
-    } catch (_) { return false; }
-  }
-
-  function buildVideoCard(src, alt) {
-    const card = el("figure", "image-card video-card");
-    const frame = el("div", "image-frame loading");
-    const status = el("div", "image-status");
-    const video = el("video");
-    video.controls = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-    frame.append(status, video);
-
-    const caption = el("figcaption");
-    caption.textContent = alt;
-
-    const actions = el("div", "image-actions");
-    const dl = makeBtn("code-btn", "fa-download", "Download", "Download video");
-    actions.appendChild(dl);
-    card.append(frame, caption, actions);
-
-    let attempt = 0;
-    function load() {
-      frame.classList.remove("failed");
-      frame.classList.add("loading");
-      status.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> <span>Generating your video… this can take a minute or two</span>';
-      video.src = attempt ? src + (src.includes("?") ? "&" : "?") + "retry=" + Date.now() : src;
-    }
-    video.addEventListener("loadeddata", () => { frame.classList.remove("loading", "failed"); card.classList.add("ready"); scrollChat(); });
-    video.addEventListener("error", () => {
-      frame.classList.remove("loading");
-      frame.classList.add("failed");
-      status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>Couldn\'t load the video. Video generation can be slow or rate-limited, so wait a moment and try again.</span>';
-      const retry = makeBtn("code-btn", "fa-rotate-right", "Try again", "Try again");
-      retry.addEventListener("click", () => { attempt++; load(); });
-      status.appendChild(retry);
-    });
-
-    dl.addEventListener("click", async () => {
-      try {
-        const r = await fetch(video.currentSrc || video.src, { cache: "force-cache" });
-        if (!r.ok) throw new Error("bad response");
-        const blob = await r.blob();
-        downloadFile(`agent1102-video-${timestamp()}.mp4`, blob);
-        flash(dl, "fa-download", "Download", "Saved");
-      } catch (_) {
-        window.open(video.currentSrc || video.src, "_blank", "noopener");
-        toast("Opened the video in a new tab. Right-click or long-press it to save.");
-      }
-    });
-
-    load();
-    return card;
-  }
-
-  /* ---------------------------------------------------------- */
   /*  Link preview cards                                         */
   /*  Any external link the AI shares (or a standalone link on   */
   /*  its own line) is shown as a small card with an Open button */
@@ -848,23 +779,12 @@
         if (soleChild) parent.replaceWith(card); else img.replaceWith(card);
       } else if (/^https?:/i.test(src)) {
         // Not our own image: never auto-load it (privacy). Show a small
-        // link-preview card instead, same idea as a generated image/video.
+        // link-preview card instead, same idea as a generated image.
         const card = buildLinkCard(src, img.getAttribute("alt") || "");
         if (soleChild) parent.replaceWith(card); else img.replaceWith(card);
       } else {
         img.remove();
       }
-    });
-
-    // "/video" results: rendered as a plain markdown link to the generated
-    // clip; turn that link into a playable video card.
-    root.querySelectorAll("a[href]").forEach(a => {
-      const href = a.getAttribute("href") || "";
-      if (!isGeneratedVideoUrl(href)) return;
-      const card = buildVideoCard(href, a.textContent || "Generated video");
-      const parent = a.parentElement;
-      const soleChild = parent && parent.tagName === "P" && parent.childNodes.length === 1;
-      if (soleChild) parent.replaceWith(card); else a.replaceWith(card);
     });
 
     root.querySelectorAll("pre").forEach(pre => {
@@ -1531,8 +1451,8 @@
 
   // Exposed for testing / other scripts
   window.Agent1102Render = {
-    normalizeChartSpec, responseToText, chunkText, parseImageRequest, parseImageEditRequest, parseVideoRequest,
+    normalizeChartSpec, responseToText, chunkText, parseImageRequest, parseImageEditRequest,
     parseAttachedFiles, historyTitle, escapeHtml, mathToSpeech, speakableText, extractMath, fileChipIcon,
-    isGeneratedVideoUrl, buildLinkCard,
+    buildLinkCard,
   };
 })();
