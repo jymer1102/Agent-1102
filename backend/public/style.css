@@ -397,8 +397,6 @@ header .header-btns { grid-area:right; justify-self:end; flex-wrap:wrap; justify
 /* ============================================================
    "Try again" / regenerate button + error replies
    ============================================================ */
-.msg-action-btn.retry-btn { gap:0.35rem; padding:0.2rem 0.55rem; }
-.msg-action-btn.retry-btn .retry-label { font-size:0.78rem; }
 .msg-action-btn.retry-btn.spinning i { animation:fa-spin 0.8s linear infinite; }
 
 /* ============================================================
