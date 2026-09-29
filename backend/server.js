@@ -274,6 +274,119 @@ app.post("/chat", async (req, res) => {
   }
 });
 
+// --- STUDY MODES (/learn, /quiz, /flashcards) ---
+// learn      -> a step-by-step markdown lesson
+// quiz       -> multiple-choice questions, returned as a ```quiz JSON block the page turns into an interactive quiz
+// flashcards -> front/back cards, returned as a ```flashcards JSON block the page turns into flip cards
+// The JSON is validated here so the page never has to draw a broken quiz.
+const STUDY_MAX_MATERIAL = 24000;
+
+async function groqStudy(system, user, { json, maxTokens }) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
+    body: JSON.stringify({
+      model: TEXT_MODEL,
+      max_tokens: maxTokens,
+      temperature: json ? 0.4 : 0.6,
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    }),
+  });
+  const data = await response.json();
+  if (!data.choices || !data.choices[0]) {
+    const err = new Error(data.error && data.error.message ? `AI error: ${String(data.error.message).slice(0, 300)}` : "No response from AI");
+    err.rate = data.error && data.error.code === "rate_limit_exceeded";
+    throw err;
+  }
+  return String(data.choices[0].message.content || "");
+}
+
+function parseJsonLoose(text) {
+  const t = String(text || "").replace(/^```(?:json)?\s*|\s*```$/gi, "").trim();
+  try { return JSON.parse(t); } catch (_) {}
+  const a = t.indexOf("{"), b = t.lastIndexOf("}");
+  if (a !== -1 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch (_) {} }
+  return null;
+}
+const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
+
+function cleanQuiz(raw, want) {
+  const list = raw && Array.isArray(raw.questions) ? raw.questions : [];
+  const questions = [];
+  for (const q of list) {
+    const text = clip(q && (q.question || q.q), 400);
+    const opts = Array.isArray(q && q.options) ? q.options.map(o => clip(o, 200).replace(/^[A-Da-d][).:]\s+/, "")).filter(Boolean) : [];
+    if (!text || opts.length < 2 || opts.length > 6) continue;
+    let ans = Number.isInteger(q.answer) ? q.answer : Number.isInteger(q.correct) ? q.correct : -1;
+    if (ans < 0 && typeof q.answer === "string") {
+      const L = q.answer.trim().toUpperCase();
+      ans = /^[A-F]$/.test(L) ? L.charCodeAt(0) - 65 : opts.findIndex(o => o.toLowerCase() === q.answer.trim().toLowerCase());
+    }
+    if (ans < 0 || ans >= opts.length) continue;
+    questions.push({ question: text, options: opts, answer: ans, explanation: clip(q.explanation, 500) });
+    if (questions.length >= want) break;
+  }
+  return questions.length ? { title: clip(raw.title, 80), questions } : null;
+}
+function cleanCards(raw, want) {
+  const list = raw && Array.isArray(raw.cards) ? raw.cards : [];
+  const cards = [];
+  for (const c of list) {
+    const front = clip(c && (c.front || c.term || c.q), 300);
+    const back = clip(c && (c.back || c.definition || c.a), 600);
+    if (front && back) cards.push({ front, back });
+    if (cards.length >= want) break;
+  }
+  return cards.length ? { title: clip(raw.title, 80), cards } : null;
+}
+
+app.post("/study", async (req, res) => {
+  const mode = String(req.body.mode || "");
+  if (!["learn", "quiz", "flashcards"].includes(mode)) return res.status(400).json({ error: "Unknown study mode" });
+  const topic = clip(req.body.topic, 300);
+  const material = String(req.body.material || "").slice(0, STUDY_MAX_MATERIAL);
+  const context = String(req.body.context || "").slice(0, 6000);
+  if (!topic && !material.trim() && !context.trim()) return res.status(400).json({ error: "Nothing to study yet" });
+  const count = Math.max(1, Math.min(parseInt(req.body.count, 10) || (mode === "quiz" ? 8 : 12), mode === "quiz" ? 20 : 40));
+
+  const source =
+    (material.trim() ? `STUDY MATERIAL (base everything on this):\n${material}\n\n` : "") +
+    (topic ? `TOPIC: ${topic}\n\n` : "") +
+    (!material.trim() && !topic ? `CONVERSATION SO FAR (study what it covered):\n${context}\n\n` : "");
+
+  try {
+    if (mode === "learn") {
+      const md = await groqStudy(
+        "You are a patient, friendly tutor. Teach the topic as a short lesson a curious student can follow. Use this structure with markdown headings: '## The big idea' (2-3 sentences, plain language), '## Key concepts' (3-5 bullets, each one short with a concrete example), '## Worked example' (one step-by-step example), '## Common mistakes' (2-3 bullets). Then end with '## Check yourself' containing 2 short questions and one line telling the student to reply with their answers so you can give feedback. Use $$...$$ for math if needed. If study material is provided, teach from it. Keep the whole lesson under 450 words. Do not use emojis.",
+        source, { json: false, maxTokens: 1800 });
+      return res.json({ reply: md.trim() });
+    }
+
+    if (mode === "quiz") {
+      const raw = await groqStudy(
+        `You write multiple-choice quizzes. Reply with ONLY a JSON object: {"title": string, "questions": [{"question": string, "options": [4 strings], "answer": index 0-3 of the correct option, "explanation": one or two sentences on why it is correct}]}. Write exactly ${count} questions. Exactly one option is correct, the wrong options must be plausible, and the correct answer must vary in position. Do not put letters like "A)" in the options. Mix easy and harder questions. If study material is provided, only ask about what it contains.`,
+        source, { json: true, maxTokens: 4000 });
+      const quiz = cleanQuiz(parseJsonLoose(raw), count);
+      if (!quiz) return res.status(502).json({ error: "I couldn't build a quiz from that. Try again or give me a more specific topic." });
+      if (!quiz.title) quiz.title = topic || "Quiz";
+      return res.json({ reply: "Here's your quiz. Pick an answer for each question.\n\n```quiz\n" + JSON.stringify(quiz) + "\n```" });
+    }
+
+    const raw = await groqStudy(
+      `You write study flashcards. Reply with ONLY a JSON object: {"title": string, "cards": [{"front": string, "back": string}]}. Write exactly ${count} cards. The front is a short term, question or prompt; the back is a clear answer in one or two sentences. Each card covers one idea, no duplicates. If study material is provided, only use what it contains.`,
+      source, { json: true, maxTokens: 4000 });
+    const deck = cleanCards(parseJsonLoose(raw), count);
+    if (!deck) return res.status(502).json({ error: "I couldn't build flashcards from that. Try again or give me a more specific topic." });
+    if (!deck.title) deck.title = topic || "Flashcards";
+    res.json({ reply: "Here are your flashcards. Tap a card to flip it.\n\n```flashcards\n" + JSON.stringify(deck) + "\n```" });
+  } catch (err) {
+    if (err.rate) return res.status(429).json({ error: "Token limit reached. Please try again in a minute." });
+    console.error("Study error:", err);
+    res.status(500).json({ error: err.message && /^AI error/.test(err.message) ? err.message : "Something went wrong" });
+  }
+});
+
 // --- CHAT TITLE (auto-summarize the conversation for the sidebar) ---
 app.post("/title", async (req, res) => {
   if (!Array.isArray(req.body.messages) || !req.body.messages.length) {
