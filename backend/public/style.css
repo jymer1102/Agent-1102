@@ -49,7 +49,7 @@ header { padding:0.75rem 1rem; background:var(--surface); display:flex; align-it
 .msg-actions { display:flex; gap:0.4rem; }
 .msg-action-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem; padding:0.2rem 0.4rem; border-radius:6px; }
 .msg-action-btn:hover { background:var(--surface2); color:var(--text); }
-#input-area { display:flex; flex-direction:column; padding:1rem; gap:0.5rem; background:var(--surface); border-top:1px solid var(--border); }
+#input-area { position:relative; display:flex; flex-direction:column; padding:1rem; gap:0.5rem; background:var(--surface); border-top:1px solid var(--border); }
 #preview-area { display:none; align-items:center; gap:0.5rem; }
 #preview-area img { height:60px; border-radius:8px; border:1px solid var(--border); }
 #remove-img { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:0.8rem; }
@@ -400,3 +400,67 @@ header .header-btns { grid-area:right; justify-self:end; flex-wrap:wrap; justify
 .msg-action-btn.retry-btn { gap:0.35rem; padding:0.2rem 0.55rem; }
 .msg-action-btn.retry-btn .retry-label { font-size:0.78rem; }
 .msg-action-btn.retry-btn.spinning i { animation:fa-spin 0.8s linear infinite; }
+
+/* ============================================================
+   Slash-command popup (shows above the message box when you type "/")
+   ============================================================ */
+#cmd-menu {
+  position:absolute; left:1rem; right:1rem; bottom:100%; margin-bottom:0.4rem; z-index:60;
+  max-width:560px; max-height:min(340px,50vh); overflow-y:auto; flex-direction:column; gap:2px; padding:0.35rem;
+  background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,0.35);
+}
+.cmd-item { display:flex; align-items:center; gap:0.7rem; width:100%; padding:0.5rem 0.6rem; border:none; border-radius:10px; background:transparent; color:var(--text); text-align:left; cursor:pointer; font-family:'Inter',sans-serif; }
+.cmd-item.active, .cmd-item:hover { background:var(--surface2); }
+.cmd-icon { width:1.6rem; text-align:center; color:var(--accent); font-size:1rem; flex-shrink:0; }
+.cmd-text { display:flex; flex-direction:column; min-width:0; }
+.cmd-top { display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap; }
+.cmd-name { font-weight:600; font-size:0.95rem; }
+.cmd-args { font-size:0.8rem; color:var(--text-muted); font-family:ui-monospace,Menlo,Consolas,monospace; }
+.cmd-desc { font-size:0.8rem; color:var(--text-muted); }
+
+/* ============================================================
+   Study widgets: quiz + flashcards
+   ============================================================ */
+.study-block { margin:0.75rem 0; padding:0.8rem 0.9rem 1rem; border-radius:16px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.14); max-width:640px; }
+.light .study-block { background:rgba(0,0,0,0.03); border-color:rgba(0,0,0,0.1); }
+.study-error { color:var(--text-muted); font-size:0.9rem; }
+.study-head { display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom:0.5rem; }
+.study-kind { font-weight:600; font-size:0.95rem; }
+.study-kind i { color:var(--accent); margin-right:0.2rem; }
+.study-progress { font-size:0.8rem; color:var(--text-muted); white-space:nowrap; }
+.study-bar { height:5px; border-radius:99px; background:rgba(127,127,127,0.25); overflow:hidden; margin-bottom:0.9rem; }
+.study-bar-fill { height:100%; width:0; background:var(--accent); border-radius:99px; transition:width 0.3s ease; }
+.study-actions { display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:center; margin-top:0.8rem; }
+.study-btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 0.9rem; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text); cursor:pointer; font-size:0.9rem; font-family:'Inter',sans-serif; }
+.study-btn:hover { filter:brightness(1.12); }
+.study-btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+
+.quiz-question { font-size:1.05rem; font-weight:500; line-height:1.45; margin-bottom:0.8rem; }
+.quiz-options { display:flex; flex-direction:column; gap:0.5rem; }
+.quiz-option { display:flex; align-items:flex-start; gap:0.7rem; width:100%; padding:0.65rem 0.75rem; border-radius:12px; border:1px solid var(--border); background:var(--surface2); color:var(--text); text-align:left; cursor:pointer; font-size:0.95rem; font-family:'Inter',sans-serif; line-height:1.4; }
+.quiz-option:not(:disabled):hover { border-color:var(--accent); }
+.quiz-option:disabled { cursor:default; }
+.quiz-letter { flex-shrink:0; width:1.5rem; height:1.5rem; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:0.78rem; font-weight:600; background:rgba(127,127,127,0.25); }
+.quiz-option.correct { border-color:#2ecc71; background:rgba(46,204,113,0.16); }
+.quiz-option.correct .quiz-letter { background:#2ecc71; color:#fff; }
+.quiz-option.wrong { border-color:#e74c3c; background:rgba(231,76,60,0.16); }
+.quiz-option.wrong .quiz-letter { background:#e74c3c; color:#fff; }
+.quiz-feedback { margin-top:0.7rem; }
+.quiz-verdict { font-weight:600; margin-bottom:0.25rem; }
+.quiz-verdict.ok { color:#2ecc71; } .quiz-verdict.bad { color:#e74c3c; }
+.quiz-explain { font-size:0.9rem; color:var(--text-muted); line-height:1.5; }
+.quiz-block .study-btn.primary { margin-top:0.8rem; }
+.quiz-result { text-align:center; padding:0.6rem 0 0.2rem; }
+.quiz-score { font-size:2.2rem; font-weight:700; }
+.quiz-score-label { color:var(--text-muted); margin-top:0.2rem; }
+
+.flashcard { display:block; width:100%; height:200px; padding:0; border:none; background:none; perspective:1000px; cursor:pointer; }
+.flashcard-inner { position:relative; width:100%; height:100%; transition:transform 0.45s; transform-style:preserve-3d; }
+.flashcard.flipped .flashcard-inner { transform:rotateY(180deg); }
+.flashcard-face { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.5rem; padding:1rem 1.2rem; text-align:center; border-radius:14px; border:1px solid var(--border); background:var(--surface2); color:var(--text); backface-visibility:hidden; -webkit-backface-visibility:hidden; overflow:auto; }
+.flashcard-face.back { transform:rotateY(180deg); border-color:var(--accent); }
+.flashcard-tag { position:absolute; top:0.55rem; left:0.8rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-muted); }
+.flashcard-text { font-size:1.1rem; line-height:1.45; font-family:'Inter',sans-serif; }
+.flashcard-hint { position:absolute; bottom:0.5rem; font-size:0.72rem; color:var(--text-muted); }
+
+@media (prefers-reduced-motion: reduce) { .flashcard-inner, .study-bar-fill { transition:none; } }
