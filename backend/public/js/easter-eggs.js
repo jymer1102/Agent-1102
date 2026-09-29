@@ -60,36 +60,29 @@
  input.addEventListener("input", () => {
   const val = input.value.trim().toLowerCase();
 
-  // Typing jymer1102 only ever turns the background ON (and unlocks the button).
-  // Turning it off is done with the image button only.
-  if (val === "jymer1102") { 
+  // Typing a secret word only matters the FIRST time: it unlocks the button.
+  // After that the word is left alone (it can be sent as a normal message) and
+  // only the header buttons are used.
+  if (val === "jymer1102" && !easterUnlocked) { 
     input.value = ""; 
-    if (easterActive) {
-      showToast("Background is already on. Use the image button to turn it off.");
-    } else {
-      toggleEaster();
-      showToast('Easter egg unlocked! <i class="fa-solid fa-lock-open"></i> Use the image button to toggle it anytime.');
-    }
+    toggleEaster(); // turns the background on and unlocks the button for good
+    showToast('Easter egg unlocked! <i class="fa-solid fa-lock-open"></i> Use the image button to toggle it anytime.');
   }
 
-  if (val === "dinosaur" || val === "trex" || val === "t-rex") { 
+  if ((val === "dinosaur" || val === "trex" || val === "t-rex") && !dinoUnlocked) { 
     input.value = ""; 
-    if (!dinoUnlocked) { 
-      dinoUnlocked = true; 
-      localStorage.setItem("agent1102_dino","true"); 
-      dinoBtn.style.display = "block"; 
-      showToast("🦖 Dino game unlocked! Click the T-Rex button anytime to play!"); 
-    } 
+    dinoUnlocked = true; 
+    localStorage.setItem("agent1102_dino","true"); 
+    dinoBtn.style.display = "block"; 
+    showToast("🦖 Dino game unlocked! Click the T-Rex button anytime to play!"); 
   }
 
-  if (val === "pac-man" || val === "pacman") { 
+  if ((val === "pac-man" || val === "pacman") && !pacmanUnlocked) { 
     input.value = ""; 
-    if (!pacmanUnlocked) { 
-      pacmanUnlocked = true; 
-      localStorage.setItem("agent1102_pacman","true"); 
-      pacmanBtn.style.display = "block"; 
-      showToast('<i class="fa-solid fa-ghost"></i> Pac-Man game unlocked! Click the Pac-Man button anytime to play!'); 
-    } 
+    pacmanUnlocked = true; 
+    localStorage.setItem("agent1102_pacman","true"); 
+    pacmanBtn.style.display = "block"; 
+    showToast('<i class="fa-solid fa-ghost"></i> Pac-Man game unlocked! Click the Pac-Man button anytime to play!'); 
   }
 
   if (val === "allahu akbar") { 
