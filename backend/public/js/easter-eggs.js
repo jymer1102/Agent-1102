@@ -60,10 +60,16 @@
  input.addEventListener("input", () => {
   const val = input.value.trim().toLowerCase();
 
+  // Typing jymer1102 only ever turns the background ON (and unlocks the button).
+  // Turning it off is done with the image button only.
   if (val === "jymer1102") { 
     input.value = ""; 
-    toggleEaster(); 
-    showToast(easterActive ? 'Easter egg unlocked! <i class="fa-solid fa-lock-open"></i> Use the image button to toggle it anytime.' : "Background off! The image button stays so you can turn it back on."); 
+    if (easterActive) {
+      showToast("Background is already on. Use the image button to turn it off.");
+    } else {
+      toggleEaster();
+      showToast('Easter egg unlocked! <i class="fa-solid fa-lock-open"></i> Use the image button to toggle it anytime.');
+    }
   }
 
   if (val === "dinosaur" || val === "trex" || val === "t-rex") { 
