@@ -1503,7 +1503,6 @@
         history.slice(0, msgIndex).some(m => m && m.role === "user");
       if (hasUserBefore) {
         const retryBtn = makeBtn("msg-action-btn retry-btn", "fa-rotate-right", "", "Try again");
-        retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i><span class="retry-label">Try again</span>';
         retryBtn.addEventListener("click", () => {
           if (typeof window.retryFrom !== "function") return;
           retryBtn.classList.add("spinning");
