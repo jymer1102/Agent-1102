@@ -412,6 +412,9 @@ document.addEventListener("DOMContentLoaded", () => {
   function messagesForServer() {
     return history.map(m => {
       if (m.role === "assistant" && typeof m.content === "string") {
+        if (m.content === Agent1102Commands.helpMarkdown()) return { role: "assistant", content: "[Agent 1102 showed the list of slash commands]" };
+        // quizzes / flashcards travel as plain text so follow-ups like "explain question 3" work
+        if (/```(?:quiz|flashcards)\b/i.test(m.content)) return { role: "assistant", content: Agent1102Render.responseToText(m.content) };
         const g = m.content.match(GENERATED_IMG);
         if (g) return { role: "assistant", content: `[Agent 1102 generated an image for the prompt: "${g[1]}"]` };
         const v = m.content.match(GENERATED_VIDEO);
@@ -497,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const src = lastGeneratedImageUrl();
         if (!src) {
           thinking.wrap.remove();
-         addMsg("ai", "Attach an image (<i class='fa-solid fa-paperclip'></i>) to edit, or generate one first with **/image**, then use **/edit** on it.");
+          addMsg("ai", "Attach an image (📎) to edit, or generate one first with **/image**, then use **/edit** on it.");
           return;
         }
         body.imageUrl = src;
@@ -519,6 +522,98 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       thinking.text.classList.remove("thinking");
       thinking.text.textContent = "Error reaching the server. Is your backend running?";
+    }
+  }
+
+  // ------------------------------------------------------------------
+  //  /help and the study modes (/learn, /quiz, /flashcards)
+  // ------------------------------------------------------------------
+  function withFileBlocks(files, typed) {
+    if (!files.length) return typed;
+    const blocks = files.map(f =>
+      `<attached_file name="${f.name.replace(/"/g, "'")}">\n${f.text.replace(/<\/attached_file>/g, "<\\/attached_file>")}${f.truncated ? "\n[...file truncated...]" : ""}\n</attached_file>`
+    ).join("\n\n");
+    return blocks + (typed ? "\n\n" + typed : "");
+  }
+
+  // Text of the files inside a saved user message (used when a study command is retried)
+  function materialFromMessage(raw) {
+    const out = [];
+    for (const m of String(raw).matchAll(/<attached_file name="([^"]*)">\n([\s\S]*?)\n<\/attached_file>/g)) out.push(`--- ${m[1]} ---\n${m[2]}`);
+    return out.join("\n\n");
+  }
+
+  // The recent conversation as plain text, so "/quiz" on its own can quiz what was just discussed
+  function studyContext(list) {
+    const helpMd = Agent1102Commands.helpMarkdown();
+    return list.filter(m => {
+      if (m.role === "assistant") return m.content !== helpMd;                       // skip the command list
+      const t = typeof m.content === "string" ? m.content.trim() : "";
+      return !(t.startsWith("/") && Agent1102Commands.parseCommand(t));               // skip bare slash commands
+    }).slice(-6).map(m => {
+      let t = typeof m.content === "string" ? m.content
+        : Array.isArray(m.content) ? m.content.filter(p => p && p.type === "text").map(p => p.text).join(" ") : "";
+      t = t.replace(/<attached_file[^>]*>[\s\S]*?<\/attached_file>/g, "[attached file]").replace(/```[\s\S]*?```/g, "").trim().slice(0, 1200);
+      return t ? `${m.role === "user" ? "Student" : "Tutor"}: ${t}` : "";
+    }).filter(Boolean).join("\n");
+  }
+
+  async function runHelp(typed, opts) {
+    opts = opts || {};
+    if (!opts.skipUser) {
+      addMsg("user", typed);
+      history.push({ role: "user", content: typed });
+      input.value = "";
+    }
+    const md = Agent1102Commands.helpMarkdown();
+    addMsg("ai", md);
+    history.push({ role: "assistant", content: md });
+    if (typeof saveCurrentChat === "function") saveCurrentChat();
+  }
+
+  const STUDY_LABEL = { learn: "Preparing your lesson...", quiz: "Building your quiz...", flashcards: "Making your flashcards..." };
+  const STUDY_TIP = {
+    learn: "What would you like to learn? For example: **/learn how photosynthesis works**. You can also attach your notes and type **/learn**.",
+    quiz: "What should the quiz be about? For example: **/quiz 5 the French Revolution**. You can also attach your notes and type **/quiz**, or just type **/quiz** after we've talked about something.",
+    flashcards: "What should the flashcards cover? For example: **/flashcards 10 Spanish greetings**. You can also attach your notes and type **/flashcards**, or just type it after we've talked about something.",
+  };
+
+  async function runStudy(cmd, opts) {
+    opts = opts || {};
+    // Context = the conversation before this command
+    const context = studyContext(opts.skipUser ? history.slice(0, -1) : history);
+    const material = opts.material || "";
+    if (!opts.skipUser) {
+      const shown = opts.modelText || `/${cmd.mode} ${cmd.topic}`.trim();
+      addMsg("user", shown);
+      history.push({ role: "user", content: shown });
+      input.value = "";
+      clearAttachments();
+    }
+
+    if (!cmd.topic && !material.trim() && !context.trim()) {
+      addMsg("ai", STUDY_TIP[cmd.mode]);
+      history.push({ role: "assistant", content: STUDY_TIP[cmd.mode] });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+      return;
+    }
+
+    const thinking = addThinking(STUDY_LABEL[cmd.mode]);
+    try {
+      const res = await fetch(`${BACKEND_URL}/study`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: cmd.mode, topic: cmd.topic, count: cmd.count, material, context: cmd.topic || material.trim() ? "" : context }),
+      });
+      const data = await res.json();
+      thinking.wrap.remove();
+      const reply = data.reply || data.error || "Something went wrong.";
+      addMsg("ai", reply); // errors get a "Try again" button too
+      if (data.reply) history.push({ role: "assistant", content: reply });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+    } catch {
+      thinking.wrap.remove();
+      addMsg("ai", "Error reaching the server. Is your backend running?");
     }
   }
 
@@ -564,6 +659,13 @@ document.addEventListener("DOMContentLoaded", () => {
         : (last.content || []).filter(p => p && p.type === "text").map(p => p.text).join("\n");
       const hasImg = Array.isArray(last.content) && last.content.some(p => p && p.type === "image_url");
 
+      if (!hasImg) {
+        const typedPart = Agent1102Render.parseAttachedFiles(text).rest;
+        if (Agent1102Commands.isHelp(typedPart)) { await runHelp(typedPart, { skipUser: true }); return; }
+        const study = Agent1102Commands.parseStudy(typedPart);
+        if (study) { await runStudy(study, { skipUser: true, material: materialFromMessage(text) }); return; }
+      }
+
       if (!hasImg && !/<attached_file/.test(text)) {
         const editReq = Agent1102Render.parseImageEditRequest(text);
         if (editReq) { await editImage(text, editReq.prompt, null, { skipUser: true }); return; }
@@ -588,6 +690,17 @@ document.addEventListener("DOMContentLoaded", () => {
     sending = true;
     btn.disabled = true;
     try {
+      // 0) Slash commands: /help and the study modes (/learn, /quiz, /flashcards)
+      if (!hasImage) {
+        if (!files.length && Agent1102Commands.isHelp(typed)) { await runHelp(typed); return; }
+        const study = Agent1102Commands.parseStudy(typed);
+        if (study) {
+          const material = files.map(f => `--- ${f.name} ---\n${f.text}`).join("\n\n");
+          await runStudy(study, { modelText: withFileBlocks(files, typed), material });
+          return;
+        }
+      }
+
       // 1) Is the user asking for an image to be created or an existing one edited?
       if (!hasImage && !files.length) {
         const editReq = Agent1102Render.parseImageEditRequest(typed);
@@ -603,13 +716,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // 2) Normal chat, possibly with image(s) and/or code/PDF/zip files attached.
       // No default question is ever injected here — if the user didn't type
       // anything, the AI just gets the attachment(s) and whatever they typed.
-      let modelText = typed;
-      if (files.length) {
-        const blocks = files.map(f =>
-          `<attached_file name="${f.name.replace(/"/g, "'")}">\n${f.text.replace(/<\/attached_file>/g, "<\\/attached_file>")}${f.truncated ? "\n[...file truncated...]" : ""}\n</attached_file>`
-        ).join("\n\n");
-        modelText = blocks + (typed ? "\n\n" + typed : "");
-      }
+      const modelText = withFileBlocks(files, typed);
 
       const imgSrcs = images.map(im => `data:${im.type};base64,${im.base64}`);
       addMsg("user", modelText, imgSrcs);
