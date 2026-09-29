@@ -829,7 +829,12 @@
       const m = codeEl && /(?:^|\s)language-(\S+)/.exec(codeEl.className);
       const lang = m ? m[1] : "";
 
-      if (CHART_LANGS.includes(lang.toLowerCase())) {
+      const study = window.Agent1102Study;
+      if (study && lang.toLowerCase() === "quiz") {
+        pre.replaceWith(study.buildQuiz(text));
+      } else if (study && lang.toLowerCase() === "flashcards") {
+        pre.replaceWith(study.buildFlashcards(text));
+      } else if (CHART_LANGS.includes(lang.toLowerCase())) {
         const block = buildChartBlock(text);
         if (block._entry) pending.push(block._entry);
         pre.replaceWith(block);
@@ -908,6 +913,12 @@
 
   // Chart blocks are JSON; in copied / downloaded text they become a readable table instead
   function responseToText(md) {
+    const study = window.Agent1102Study;
+    if (study) {
+      md = String(md)
+        .replace(/```quiz[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.quizToText(body) || whole)
+        .replace(/```flashcards[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.cardsToText(body) || whole);
+    }
     return String(md).replace(/```(?:chart|chartjs|chart\.js|chart-json)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => {
       try {
         const spec = normalizeChartSpec(JSON.parse(body));
@@ -1127,6 +1138,7 @@
       return m ? ` ${mathToSpeech(m.tex)} ` : "";
     });
     // Code (and our chart JSON) is unreadable aloud; drop fenced blocks entirely.
+    text = text.replace(/```(?:quiz|flashcards)[^\n]*\n[\s\S]*?```/gi, " ");
     text = text.replace(/```[\s\S]*?```/g, " Code omitted. ");
 
     if (typeof marked === "undefined") return text.replace(/\s+/g, " ").trim();
@@ -1427,6 +1439,15 @@
       }
       wrap.appendChild(bubble);
 
+      // A message that is nothing but link(s) also gets preview card(s) under the bubble
+      const onlyLinks = shown.trim() && !parsed.files.length && !imgList.length
+        ? shown.trim().split(/\s+/) : null;
+      if (onlyLinks && onlyLinks.every(t => /^https?:\/\/[^\s<>"]+$/i.test(t))) {
+        const box = el("div", "link-cards");
+        [...new Set(onlyLinks)].slice(0, 3).forEach(u => box.appendChild(buildLinkCard(u, "")));
+        wrap.appendChild(box);
+      }
+
       if (shown) {
         const actions = el("div", "msg-actions");
         const copyBtn = makeBtn("msg-action-btn", "fa-copy", "", "Copy message");
@@ -1481,9 +1502,8 @@
       const hasUserBefore = typeof history !== "undefined" && Array.isArray(history) && msgIndex != null &&
         history.slice(0, msgIndex).some(m => m && m.role === "user");
       if (hasUserBefore) {
-        const retryBtn = makeBtn("msg-action-btn retry-btn", "fa-rotate-right", "", "");
-
-        retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
+        const retryBtn = makeBtn("msg-action-btn retry-btn", "fa-rotate-right", "", "Try again");
+        retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i><span class="retry-label">Try again</span>';
         retryBtn.addEventListener("click", () => {
           if (typeof window.retryFrom !== "function") return;
           retryBtn.classList.add("spinning");
