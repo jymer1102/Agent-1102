@@ -717,5 +717,15 @@
     catch (_) { return "[Math visual]"; }
   }
 
-  window.Agent1102MathViz = { build, buildInline, toText, compile, _svgFor: svgFor };
+  // True when a code block's text is a drawable spec (used to draw it even if the AI labelled the block "json", "graph", ...)
+  function looksLikeSpec(rawText) {
+    let o;
+    try { o = JSON.parse(String(rawText).trim()); } catch (_) { return false; }
+    if (!o || typeof o !== "object" || Array.isArray(o)) return false;
+    const t = String(o.type || "").toLowerCase().replace(/[\s_-]/g, "");
+    if (["graph", "plane", "function", "functions", "geometry", "numberline", "fraction", "fractions", "coordinateplane", "cartesian", "mathviz"].includes(t)) return true;
+    return ["functions", "inequalities", "areas", "parametric", "polar", "intervals", "arcs", "polygons", "circles", "angles"].some(k => Array.isArray(o[k]));
+  }
+
+  window.Agent1102MathViz = { build, buildInline, toText, compile, looksLikeSpec, _svgFor: svgFor };
 })();
