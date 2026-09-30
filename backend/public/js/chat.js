@@ -722,6 +722,42 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const STUDY_LABEL = { learn: "Preparing your lesson...", quiz: "Building your quiz...", flashcards: "Making your flashcards..." };
+  // /graph, /plot, /numberline: the server returns a real drawing (```mathviz block), never code
+  async function runGraph(typed, request, opts) {
+    opts = opts || {};
+    const before = opts.skipUser ? history.slice(0, -1) : history;
+    if (!opts.skipUser) {
+      addMsg("user", typed);
+      history.push({ role: "user", content: typed });
+      input.value = "";
+    }
+    const context = studyContext(before);
+    if (!request.trim() && !context.trim()) {
+      const tip = "What should I draw? For example: **/graph y = x^2 - 4**, **/graph number line -2 < x <= 3**, or **/graph right triangle with sides 3, 4, 5**.";
+      addMsg("ai", tip);
+      history.push({ role: "assistant", content: tip });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+      return;
+    }
+    const thinking = addThinking("Drawing it...");
+    try {
+      const res = await fetch(`${BACKEND_URL}/graph`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request, context: request.trim() ? context.split("\n").slice(-4).join("\n") : context }),
+      });
+      const data = await res.json();
+      thinking.wrap.remove();
+      const reply = data.reply || data.error || "Something went wrong.";
+      addMsg("ai", reply);
+      if (data.reply) history.push({ role: "assistant", content: reply });
+      if (typeof saveCurrentChat === "function") saveCurrentChat();
+    } catch {
+      thinking.wrap.remove();
+      addMsg("ai", "Error reaching the server. Is your backend running?");
+    }
+  }
+
   const STUDY_TIP = {
     learn: "What would you like to learn? For example: **/learn how photosynthesis works**. You can also attach your notes and type **/learn**.",
     quiz: "What should the quiz be about? For example: **/quiz 5 the French Revolution**. You can also attach your notes and type **/quiz**, or just type **/quiz** after we've talked about something.",
@@ -844,6 +880,8 @@ document.addEventListener("DOMContentLoaded", () => {
       {
         const typedPart = Agent1102Render.parseAttachedFiles(text).rest;
         if (!hasImg && Agent1102Commands.isHelp(typedPart)) { await runHelp(typedPart, { skipUser: true }); return; }
+        const graphReq = !hasImg && !/<attached_file/.test(text) ? Agent1102Commands.parseGraph(typedPart) : null;
+        if (graphReq) { await runGraph(typedPart, graphReq.request, { skipUser: true }); return; }
         const study = Agent1102Commands.parseStudy(typedPart);
         if (study) {
           const imgs = hasImg ? last.content.filter(p => p && p.type === "image_url").map(p => p.image_url.url) : [];
@@ -878,6 +916,8 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       // 0) Slash commands: /help and the study modes (/learn, /quiz, /flashcards)
       if (!hasImage && !files.length && Agent1102Commands.isHelp(typed)) { await runHelp(typed); return; }
+      const graphReq = !hasImage && !files.length ? Agent1102Commands.parseGraph(typed) : null;
+      if (graphReq) { await runGraph(typed, graphReq.request); return; }
       const study = Agent1102Commands.parseStudy(typed);
       if (study) {
         await runStudy(study, {
