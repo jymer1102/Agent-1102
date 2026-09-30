@@ -312,6 +312,7 @@
   /*  Charts                                                     */
   /* ---------------------------------------------------------- */
   const CHART_LANGS = ["chart", "chartjs", "chart.js", "chart-json"];
+  const MATH_LANGS = ["mathviz", "mathgraph", "math-visual"];
   const TYPE_MAP = {
     bar: "bar", column: "bar", line: "line",
     pie: "pie", doughnut: "doughnut", donut: "doughnut",
@@ -834,6 +835,8 @@
         pre.replaceWith(study.buildQuiz(text));
       } else if (study && lang.toLowerCase() === "flashcards") {
         pre.replaceWith(study.buildFlashcards(text));
+      } else if (window.Agent1102MathViz && MATH_LANGS.includes(lang.toLowerCase())) {
+        pre.replaceWith(window.Agent1102MathViz.build(text));
       } else if (CHART_LANGS.includes(lang.toLowerCase())) {
         const block = buildChartBlock(text);
         if (block._entry) pending.push(block._entry);
@@ -919,6 +922,7 @@
         .replace(/```quiz[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.quizToText(body) || whole)
         .replace(/```flashcards[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.cardsToText(body) || whole);
     }
+    md = String(md).replace(/```(?:mathviz|mathgraph|math-visual)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => (window.Agent1102MathViz ? window.Agent1102MathViz.toText(body) : "[Math visual]"));
     return String(md).replace(/```(?:chart|chartjs|chart\.js|chart-json)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => {
       try {
         const spec = normalizeChartSpec(JSON.parse(body));
@@ -1138,7 +1142,7 @@
       return m ? ` ${mathToSpeech(m.tex)} ` : "";
     });
     // Code (and our chart JSON) is unreadable aloud; drop fenced blocks entirely.
-    text = text.replace(/```(?:quiz|flashcards)[^\n]*\n[\s\S]*?```/gi, " ");
+    text = text.replace(/```(?:quiz|flashcards|mathviz|mathgraph|math-visual)[^\n]*\n[\s\S]*?```/gi, " ");
     text = text.replace(/```[\s\S]*?```/g, " Code omitted. ");
 
     if (typeof marked === "undefined") return text.replace(/\s+/g, " ").trim();
