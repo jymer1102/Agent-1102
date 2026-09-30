@@ -835,7 +835,8 @@
         pre.replaceWith(study.buildQuiz(text));
       } else if (study && lang.toLowerCase() === "flashcards") {
         pre.replaceWith(study.buildFlashcards(text));
-      } else if (window.Agent1102MathViz && MATH_LANGS.includes(lang.toLowerCase())) {
+      } else if (window.Agent1102MathViz && (MATH_LANGS.includes(lang.toLowerCase()) ||
+                 (["", "json", "graph", "plot", "geometry", "numberline", "math", "desmos"].includes(lang.toLowerCase()) && window.Agent1102MathViz.looksLikeSpec(text)))) {
         pre.replaceWith(window.Agent1102MathViz.build(text));
       } else if (CHART_LANGS.includes(lang.toLowerCase())) {
         const block = buildChartBlock(text);
@@ -845,6 +846,16 @@
         pre.replaceWith(buildCodeBlock(text, lang));
       }
     });
+
+    // A drawing spec the AI forgot to put in a code block (bare JSON in a paragraph) is still drawn
+    if (window.Agent1102MathViz) {
+      root.querySelectorAll("p").forEach(p => {
+        const t = p.textContent.trim();
+        if (t.length > 30 && t[0] === "{" && t[t.length - 1] === "}" && window.Agent1102MathViz.looksLikeSpec(t)) {
+          p.replaceWith(window.Agent1102MathViz.build(t));
+        }
+      });
+    }
 
     root.querySelectorAll("table").forEach(table => {
       const wrap = el("div", "table-wrap");
