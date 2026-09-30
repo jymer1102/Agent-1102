@@ -62,10 +62,31 @@
   }
 
   // Compile "x^2-4" into a function of a variable map: fn({x: 3}) -> 5
+  // Turns the ways an AI writes math ("\\frac{1}{x}", "sin^2(x)", "log_2(x)", "x⁴") into plain "(1)/(x)" style text
+  const SUPDIG = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-" };
+  function cleanNotation(raw) {
+    let t = String(raw == null ? "" : raw).slice(0, 400);
+    // JSON turns an unescaped "\frac" / "\theta" / "\tan" / "\beta" / "\right" into control characters: undo that
+    t = t.replace(/\f(?=rac|loor)/g, "\\f").replace(/\t(?=heta|an|imes|anh)/g, "\\t").replace(/\x08(?=eta)/g, "\\b").replace(/\r(?=ight)/g, "\\r");
+    t = t.replace(/\$/g, "").replace(/\\left|\\right|\\[,!;: ]/g, "").replace(/\\(cdot|times)/g, "*").replace(/\\div/g, "/");
+    t = t.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+/g, m => "^(" + [...m].map(c => SUPDIG[c]).join("") + ")");
+    for (let k = 0; k < 6; k++) {                                   // nested \frac{..}{..} and \sqrt{..}
+      t = t.replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, "(($1)/($2))")
+           .replace(/\\sqrt\s*\[\s*3\s*\]\s*\{([^{}]*)\}/g, "cbrt($1)")
+           .replace(/\\sqrt\s*\{([^{}]*)\}/g, "sqrt($1)");
+    }
+    t = t.replace(/\\(?=[a-zA-Z])/g, "");                          // \sin -> sin, \pi -> pi, \theta -> theta
+    t = t.replace(/\b(log|ln)_\{?\s*(\d+(?:\.\d+)?|e)\s*\}?\s*\(([^()]*)\)/gi, (m, f, b, a) => b === "e" || f.toLowerCase() === "ln" ? `ln(${a})` : `logb(${a},${b})`);
+    t = t.replace(/\b(sin|cos|tan|sec|csc|cot|sinh|cosh|tanh)\s*\^\s*\{?\s*(-?\d+)\s*\}?\s*\(([^()]*)\)/gi, "(($1($3))^($2))")
+         .replace(/\b(sin|cos|tan|sec|csc|cot|sinh|cosh|tanh)\s*\^\s*\{?\s*(-?\d+)\s*\}?\s+([a-z0-9.]+)/gi, "(($1($3))^($2))");
+    t = t.replace(/\^\s*\{/g, "^(").replace(/[{}]/g, m => (m === "{" ? "(" : ")")).replace(/\^\s*\(\s*\(/g, "^((");
+    return t;
+  }
+
   function compile(raw, vars) {
-    let src = String(raw == null ? "" : raw).slice(0, 240)
+    let src = cleanNotation(raw)
       .replace(/−|–/g, "-").replace(/×|·/g, "*").replace(/÷/g, "/").replace(/π/g, "pi")
-      .replace(/²/g, "^2").replace(/³/g, "^3").replace(/√/g, "sqrt").replace(/\$/g, "");
+      .replace(/²/g, "^2").replace(/³/g, "^3").replace(/√/g, "sqrt");
     // drop a leading "y =", "f(x) =", "r =" ...
     const eq = src.match(/^\s*[a-zA-Z]\w*(?:\s*\(\s*[a-zA-Z]\w*\s*\))?\s*=(?!=)\s*(.+)$/);
     if (eq && !/=/.test(eq[1])) src = eq[1];
@@ -136,6 +157,12 @@
           }
           if (!isOp(")")) throw new Error("Missing )");
           i++; const fn = FUNCS1[name]; return v => fn(a(v));
+        }
+        if (FUNCS1[name] && toks[i] && (toks[i].t === "num" || toks[i].t === "id" || (toks[i].t === "op" && toks[i].v === "|"))) {
+          // "sin x", "sin 2x", "ln|x|": the function applies to the next factor(s)
+          let arg = parsePower();
+          while (startsFactor() && !(toks[i].t === "id" && (FUNCS1[toks[i].v.toLowerCase()] || FUNCS2[toks[i].v.toLowerCase()]))) { const r = parsePower(), l = arg; arg = v => l(v) * r(v); }
+          const fn = FUNCS1[name]; return v => fn(arg(v));
         }
         if (vars.includes(name)) return v => v[name];
         if (name in CONSTS) { const c = CONSTS[name]; return () => c; }
@@ -633,8 +660,26 @@
     const type = normalizeType(spec);
     return { type, svg: type === "numberline" ? renderNumberLine(spec, T) : type === "fraction" ? renderFractions(spec, T) : renderPlane(spec, T) };
   }
+  // JSON.parse, but forgiving about what AIs often write: trailing commas, // comments, single quotes,
+  // unquoted keys, Python True/False/None, stray text around the object, and "\sin" style backslashes
+  function parseLoose(raw) {
+    if (typeof raw !== "string") return raw;
+    let t = raw.trim();
+    try { return JSON.parse(t); } catch (_) {}
+    const a = t.indexOf("{"), b = t.lastIndexOf("}");
+    if (a > 0 || (b !== -1 && b < t.length - 1)) { if (a !== -1 && b > a) t = t.slice(a, b + 1); }
+    t = t.replace(/^\s*\/\/.*$/gm, "").replace(/([,{\[]\s*)\/\/[^\n]*$/gm, "$1").replace(/\/\*[\s\S]*?\*\//g, "");
+    if (!/"/.test(t)) t = t.replace(/'/g, '"');
+    t = t.replace(/\bTrue\b/g, "true").replace(/\bFalse\b/g, "false").replace(/\bNone\b/g, "null");
+    t = t.replace(/([{,]\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:/g, '$1"$2":');
+    t = t.replace(/,\s*([}\]])/g, "$1");
+    try { return JSON.parse(t); } catch (_) {}
+    t = t.replace(/\\(?!["\\\/bfnrtu])/g, "\\\\");                 // "\sin(x)" -> "\\sin(x)"
+    return JSON.parse(t);
+  }
+
   function parseSpec(raw) {
-    const spec = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const spec = typeof raw === "string" ? parseLoose(raw) : raw;
     if (!spec || typeof spec !== "object" || Array.isArray(spec)) throw new Error("the data isn't a valid object.");
     return spec;
   }
@@ -720,12 +765,12 @@
   // True when a code block's text is a drawable spec (used to draw it even if the AI labelled the block "json", "graph", ...)
   function looksLikeSpec(rawText) {
     let o;
-    try { o = JSON.parse(String(rawText).trim()); } catch (_) { return false; }
+    try { o = parseLoose(String(rawText)); } catch (_) { return false; }
     if (!o || typeof o !== "object" || Array.isArray(o)) return false;
     const t = String(o.type || "").toLowerCase().replace(/[\s_-]/g, "");
     if (["graph", "plane", "function", "functions", "geometry", "numberline", "fraction", "fractions", "coordinateplane", "cartesian", "mathviz"].includes(t)) return true;
     return ["functions", "inequalities", "areas", "parametric", "polar", "intervals", "arcs", "polygons", "circles", "angles"].some(k => Array.isArray(o[k]));
   }
 
-  window.Agent1102MathViz = { build, buildInline, toText, compile, looksLikeSpec, _svgFor: svgFor };
+  window.Agent1102MathViz = { build, buildInline, toText, compile, looksLikeSpec, parseLoose, _svgFor: svgFor };
 })();
