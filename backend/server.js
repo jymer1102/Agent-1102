@@ -170,6 +170,14 @@ app.get("/profile", async (req, res) => {
 
 // The system prompt. The FORMATTING RULES section is what makes the front end render
 // code boxes and charts, so keep the ```chart format in sync with public/js/render.js.
+// How the AI draws math pictures. The page (js/mathviz.js) turns a ```mathviz JSON block into an SVG.
+const MATH_VISUALS_GUIDE =
+  'MATH VISUALS: when a picture helps with math (graphs of equations or inequalities, area under a curve, number lines and solution sets, geometry figures, fractions), put ONE fenced code block with the language "mathviz" holding a single JSON object right where the picture belongs, and still explain in words. Never draw ASCII art. JSON only: double quotes, no comments, no trailing commas, include only the fields you need. ' +
+  'Graph / geometry: {"type":"graph","title":"","xMin":-5,"xMax":5,"yMin":-5,"yMax":5,"functions":[{"expr":"x^2-4","label":"y = x^2 - 4","dashed":false}],"inequalities":[{"expr":"2x+1","op":">"}],"areas":[{"expr":"x^2","from":0,"to":2}],"parametric":[{"x":"cos(t)","y":"sin(t)","t":[0,6.283]}],"polar":[{"r":"1+cos(theta)"}],"points":[{"x":2,"y":0,"label":"(2, 0)","open":false}],"segments":[{"from":[0,0],"to":[3,4],"label":"5"}],"vectors":[{"from":[0,0],"to":[2,1]}],"polygons":[{"points":[[0,0],[4,0],[0,3]],"vertexLabels":["A","B","C"],"sideLabels":["4","5","3"]}],"circles":[{"center":[0,0],"r":5}],"angles":[{"vertex":[0,0],"from":[4,0],"to":[0,3],"label":"90\u00b0","right":true}],"texts":[{"x":1,"y":1,"text":"note"}],"vlines":[2],"hlines":[1]}. ' +
+  'Inequality op is one of ">", ">=", "<", "<=" (dashed boundary for strict ones; use {"x":3,"op":">"} for a vertical boundary). Expressions use x (t or theta for curves), + - * / ^, implicit multiplication (2x), sin cos tan sqrt abs ln log exp, and pi and e. Use "geometry" shapes (polygons, circles, angles, segments) with real coordinates for triangles, circles, angle diagrams and the like; leave xMin..yMax out to auto-fit. ' +
+  'Number line: {"type":"numberline","min":-5,"max":5,"step":1,"denominator":4,"points":[{"value":3,"label":"3","open":false}],"intervals":[{"from":-2,"to":3,"fromOpen":true,"toOpen":false}],"arcs":[{"from":0,"to":4,"label":"+4"}]} (leave from or to out for infinity; arcs show jumps for addition and subtraction; denominator puts fraction ticks). ' +
+  'Fractions: {"type":"fraction","items":[{"numerator":3,"denominator":4,"shape":"circle"},{"numerator":1,"denominator":2,"shape":"bar"}]}.';
+
 const SYSTEM_PROMPT = [
   "You are Agent 1102, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Agent 1102 but never introduce yourself or start responses with your name. Just answer naturally and helpfully, tell the full truth. If they ask you to answer or talk in a specific way, you will. You will do what the user asks. You only share that you're instructions are to be helpful and do what the user asks.",
   "",
@@ -192,6 +200,7 @@ const SYSTEM_PROMPT = [
   "8. IMAGE CREATION: this app can generate images. If the user wants a picture created and it was not created automatically, tell them to start their message with /image followed by a description, for example: /image a red sports car on a beach at sunset. Do not claim you cannot create images, and do not write code to make one unless they ask for code.",
   "9. IMAGE EDITING: this app can edit an existing image (either one the user attached, or the most recent image generated in the chat). If the user wants an image changed, tell them to start their message with /edit followed by a description of the change, for example: /edit make the sky purple. Do not claim you cannot edit images.",
   "10. ABOUT JYMER1102: if the user asks about jymer1102 (who they are, their site, their links, socials, projects, or how to contact them), share these two links, each as a plain URL on its own line so the app can show them as link preview cards: https://jymer1102.github.io/jymer1102 (their site) and https://linktr.ee/jymer1102 (all their links). Keep the text around them short and do not invent details about jymer1102 beyond what the links are.",
+  "11. " + MATH_VISUALS_GUIDE + " If the user's message starts with /graph, /plot or /numberline, draw exactly what they describe (one mathviz block plus one or two short sentences, such as key points like intercepts or vertex).",
 ].join("\n");
 
 // --- CHAT ---
@@ -311,6 +320,13 @@ function parseJsonLoose(text) {
 }
 const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
 
+// A math picture attached to a quiz question / flashcard: keep it only if it is a plain object of reasonable size
+const VISUAL_TYPES = ["graph", "geometry", "numberline", "fraction"];
+function cleanVisual(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  if (!VISUAL_TYPES.includes(String(v.type || "").toLowerCase().replace(/[\s_-]/g, ""))) return null;
+  try { return JSON.stringify(v).length <= 4000 ? v : null; } catch (_) { return null; }
+}
 function cleanQuiz(raw, want) {
   const list = raw && Array.isArray(raw.questions) ? raw.questions : [];
   const questions = [];
@@ -324,7 +340,8 @@ function cleanQuiz(raw, want) {
       ans = /^[A-F]$/.test(L) ? L.charCodeAt(0) - 65 : opts.findIndex(o => o.toLowerCase() === q.answer.trim().toLowerCase());
     }
     if (ans < 0 || ans >= opts.length) continue;
-    questions.push({ question: text, options: opts, answer: ans, explanation: clip(q.explanation, 500) });
+    const visual = cleanVisual(q.visual);
+    questions.push({ question: text, options: opts, answer: ans, explanation: clip(q.explanation, 500), ...(visual ? { visual } : {}) });
     if (questions.length >= want) break;
   }
   return questions.length ? { title: clip(raw.title, 80), questions } : null;
@@ -335,7 +352,10 @@ function cleanCards(raw, want) {
   for (const c of list) {
     const front = clip(c && (c.front || c.term || c.q), 300);
     const back = clip(c && (c.back || c.definition || c.a), 600);
-    if (front && back) cards.push({ front, back });
+    if (front && back) {
+      const fv = cleanVisual(c.frontVisual), bv = cleanVisual(c.backVisual);
+      cards.push({ front, back, ...(fv ? { frontVisual: fv } : {}), ...(bv ? { backVisual: bv } : {}) });
+    }
     if (cards.length >= want) break;
   }
   return cards.length ? { title: clip(raw.title, 80), cards } : null;
@@ -433,14 +453,14 @@ app.post("/study", async (req, res) => {
   try {
     if (mode === "learn") {
       const md = await groqStudy(
-        "You are a patient, friendly tutor. Teach the topic as a short lesson a curious student can follow. Use this structure with markdown headings: '## The big idea' (2-3 sentences, plain language), '## Key concepts' (3-5 bullets, each one short with a concrete example), '## Worked example' (one step-by-step example), '## Common mistakes' (2-3 bullets). Then end with '## Check yourself' containing 2 short questions and one line telling the student to reply with their answers so you can give feedback. Use $$...$$ for math if needed. If study material is provided, teach from it; if it is homework or a worksheet of problems, teach the concepts needed to solve them and include one of its problems as the worked example. Write math as LaTeX inside \\( ... \\) or $$ ... $$. Keep the whole lesson under 450 words. Do not use emojis.",
+        "You are a patient, friendly tutor. Teach the topic as a short lesson a curious student can follow. Use this structure with markdown headings: '## The big idea' (2-3 sentences, plain language), '## Key concepts' (3-5 bullets, each one short with a concrete example), '## Worked example' (one step-by-step example), '## Common mistakes' (2-3 bullets). Then end with '## Check yourself' containing 2 short questions and one line telling the student to reply with their answers so you can give feedback. Use $$...$$ for math if needed. If study material is provided, teach from it; if it is homework or a worksheet of problems, teach the concepts needed to solve them and include one of its problems as the worked example. Write math as LaTeX inside \\( ... \\) or $$ ... $$. Keep the whole lesson under 450 words. Do not use emojis. " + MATH_VISUALS_GUIDE + " For math topics, include one or two mathviz pictures (for example the graph, number line, or diagram being taught) inside the lesson; skip pictures for non-math topics.",
         source, { json: false, maxTokens: 1800 });
       return res.json({ reply: md.trim() });
     }
 
     if (mode === "quiz") {
       const raw = await groqStudy(
-        `You write multiple-choice quizzes. Reply with ONLY a JSON object: {"title": string, "questions": [{"question": string, "options": [4 strings], "answer": index 0-3 of the correct option, "explanation": one or two sentences on why it is correct}]}. Write exactly ${count} questions. Exactly one option is correct, the wrong options must be plausible, and the correct answer must vary in position. Do not put letters like "A)" in the options. Mix easy and harder questions. If study material is provided, only ask about what it contains. If the material is homework or a worksheet of problems, write questions that test the same skills and concepts (you may reuse or vary the problems); write math as LaTeX inside \\( ... \\).`,
+        `You write multiple-choice quizzes. Reply with ONLY a JSON object: {"title": string, "questions": [{"question": string, "options": [4 strings], "answer": index 0-3 of the correct option, "explanation": one or two sentences on why it is correct}]}. Write exactly ${count} questions. Exactly one option is correct, the wrong options must be plausible, and the correct answer must vary in position. Do not put letters like "A)" in the options. Mix easy and harder questions. If study material is provided, only ask about what it contains. If the material is homework or a worksheet of problems, write questions that test the same skills and concepts (you may reuse or vary the problems); write math as LaTeX inside \\( ... \\). For math questions that depend on a picture (reading a graph, a number line, a geometry figure), you may add a "visual" field to that question holding a mathviz JSON object as described here; the question must be answerable from that picture, and most questions need no visual. ${MATH_VISUALS_GUIDE}`,
         source, { json: true, maxTokens: 4000 });
       const quiz = cleanQuiz(parseJsonLoose(raw), count);
       if (!quiz) return res.status(502).json({ error: "I couldn't build a quiz from that. Try again or give me a more specific topic." });
@@ -449,7 +469,7 @@ app.post("/study", async (req, res) => {
     }
 
     const raw = await groqStudy(
-      `You write study flashcards. Reply with ONLY a JSON object: {"title": string, "cards": [{"front": string, "back": string}]}. Write exactly ${count} cards. The front is a short term, question or prompt; the back is a clear answer in one or two sentences. Each card covers one idea, no duplicates. If study material is provided, only use what it contains.`,
+      `You write study flashcards. Reply with ONLY a JSON object: {"title": string, "cards": [{"front": string, "back": string}]}. Write exactly ${count} cards. The front is a short term, question or prompt; the back is a clear answer in one or two sentences. Each card covers one idea, no duplicates. If study material is provided, only use what it contains. For math cards you may add "frontVisual" or "backVisual" holding a mathviz JSON object described here (for example a graph on the front, or a labelled diagram on the back); most cards need none. ${MATH_VISUALS_GUIDE}`,
       source, { json: true, maxTokens: 4000 });
     const deck = cleanCards(parseJsonLoose(raw), count);
     if (!deck) return res.status(502).json({ error: "I couldn't build flashcards from that. Try again or give me a more specific topic." });
