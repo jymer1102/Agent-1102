@@ -36,7 +36,7 @@
     if (!raw || !Array.isArray(raw.questions)) throw new Error("the quiz data isn't valid.");
     const questions = raw.questions.filter(q => q && q.question && Array.isArray(q.options) && q.options.length >= 2 &&
       Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length)
-      .map(q => ({ question: String(q.question), options: q.options.map(String), answer: q.answer, explanation: q.explanation ? String(q.explanation) : "" }));
+      .map(q => ({ question: String(q.question), options: q.options.map(String), answer: q.answer, explanation: q.explanation ? String(q.explanation) : "", visual: q.visual && typeof q.visual === "object" ? q.visual : null }));
     if (!questions.length) throw new Error("it has no usable questions.");
     return { title: raw.title ? String(raw.title) : "Quiz", questions };
   }
@@ -63,7 +63,7 @@
       return shuffle(list).map(q => {
         const opts = q.options.map((text, i) => ({ text, ok: i === q.answer }));
         const mixed = shuffle(opts);
-        return { question: q.question, options: mixed.map(o => o.text), answer: mixed.findIndex(o => o.ok), explanation: q.explanation, orig: q };
+        return { question: q.question, options: mixed.map(o => o.text), answer: mixed.findIndex(o => o.ok), explanation: q.explanation, visual: q.visual, orig: q };
       });
     }
 
@@ -74,6 +74,8 @@
       progress.textContent = `Question ${idx + 1} of ${order.length}`;
       fill.style.width = (idx / order.length * 100) + "%";
 
+      const pic = q.visual && window.Agent1102MathViz ? window.Agent1102MathViz.buildInline(q.visual) : null;
+      if (pic) body.appendChild(pic); // graph / number line / diagram for this question
       body.appendChild(el("div", "quiz-question", q.question));
       const list = el("div", "quiz-options");
       const feedback = el("div", "quiz-feedback");
@@ -136,7 +138,8 @@
   /* --------------------------- Flashcards --------------------------- */
   function normalizeDeck(raw) {
     if (!raw || !Array.isArray(raw.cards)) throw new Error("the flashcard data isn't valid.");
-    const cards = raw.cards.filter(c => c && c.front && c.back).map(c => ({ front: String(c.front), back: String(c.back) }));
+    const obj = v => (v && typeof v === "object" && !Array.isArray(v) ? v : null);
+    const cards = raw.cards.filter(c => c && c.front && c.back).map(c => ({ front: String(c.front), back: String(c.back), frontVisual: obj(c.frontVisual), backVisual: obj(c.backVisual) }));
     if (!cards.length) throw new Error("it has no usable cards.");
     return { title: raw.title ? String(raw.title) : "Flashcards", cards };
   }
@@ -170,9 +173,17 @@
       card.setAttribute("aria-label", "Flashcard. Tap to flip.");
       const inner = el("div", "flashcard-inner");
       const front = el("div", "flashcard-face front");
-      front.append(el("div", "flashcard-tag", "Front"), el("div", "flashcard-text", c.front), el("div", "flashcard-hint", "Tap to flip"));
+      const MV = window.Agent1102MathViz;
+      const fPic = c.frontVisual && MV ? MV.buildInline(c.frontVisual) : null;
+      const bPic = c.backVisual && MV ? MV.buildInline(c.backVisual) : null;
+      front.append(el("div", "flashcard-tag", "Front"));
+      if (fPic) front.appendChild(fPic);
+      front.append(el("div", "flashcard-text", c.front), el("div", "flashcard-hint", "Tap to flip"));
       const back = el("div", "flashcard-face back");
-      back.append(el("div", "flashcard-tag", "Back"), el("div", "flashcard-text", c.back));
+      back.append(el("div", "flashcard-tag", "Back"));
+      if (bPic) back.appendChild(bPic);
+      back.append(el("div", "flashcard-text", c.back));
+      if (fPic || bPic) card.classList.add("has-visual");
       inner.append(front, back);
       card.appendChild(inner);
       card.addEventListener("click", () => { card.classList.toggle("flipped"); actions.style.visibility = "visible"; });
@@ -211,7 +222,7 @@
       const q = normalizeQuiz(JSON.parse(rawText));
       return `**${q.title}**\n\n` + q.questions.map((x, n) =>
         `${n + 1}. ${x.question}\n` + x.options.map((o, k) => `   ${String.fromCharCode(65 + k)}) ${o}`).join("\n") +
-        `\n   Answer: ${String.fromCharCode(65 + x.answer)}${x.explanation ? " - " + x.explanation : ""}`).join("\n\n") + "\n";
+        `\n   Answer: ${String.fromCharCode(65 + x.answer)}${x.explanation ? " - " + x.explanation : ""}`).map((t, i) => (x => x)(q.questions[i].visual && window.Agent1102MathViz ? "   " + window.Agent1102MathViz.toText(q.questions[i].visual) + "\n" + t : t)).join("\n\n") + "\n";
     } catch (_) { return null; }
   }
   function cardsToText(rawText) {
