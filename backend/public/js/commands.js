@@ -7,9 +7,9 @@
 
   const COMMANDS = [
     { name: "help",       args: "",                     desc: "Show all commands",                          icon: "fa-circle-question",  group: "General" },
-    { name: "learn",      args: "<topic>",              desc: "Learn a topic step by step with a short lesson", icon: "fa-graduation-cap", group: "Study", aliases: ["teach"] },
-    { name: "quiz",       args: "[number] <topic>",     desc: "Test yourself with an interactive multiple-choice quiz", icon: "fa-clipboard-question", group: "Study", aliases: ["test"] },
-    { name: "flashcards", args: "[number] <topic>",     desc: "Flip through flashcards on a topic",         icon: "fa-clone",            group: "Study", aliases: ["flashcard", "cards"] },
+    { name: "learn",      args: "<topic>",              desc: "Learn a topic (or your notes / a photo of them) step by step", icon: "fa-graduation-cap", group: "Study", aliases: ["teach"] },
+    { name: "quiz",       args: "[number] <topic>",     desc: "Quiz yourself on a topic, your notes, a photo of homework, or a link", icon: "fa-clipboard-question", group: "Study", aliases: ["test"] },
+    { name: "flashcards", args: "[number] <topic>",     desc: "Flashcards from a topic, your notes, a photo, or a file",         icon: "fa-clone",            group: "Study", aliases: ["flashcard", "cards"] },
     { name: "image",      args: "<description>",        desc: "Generate an image",                          icon: "fa-image",            group: "Create", aliases: ["imagine", "img", "draw"] },
     { name: "edit",       args: "<change>",             desc: "Edit an attached image, or the last one I made", icon: "fa-wand-magic-sparkles", group: "Create" },
   ];
@@ -39,7 +39,7 @@
     if (!p || !["learn", "quiz", "flashcards"].includes(p.cmd.name)) return null;
     let topic = p.rest, count = null;
     if (p.cmd.name !== "learn") {
-      const m = topic.match(/^(\d{1,2})(?:\s+(?:questions?|cards?|flashcards?))?(?:\s+(?:on|about|for)\b)?\s*([\s\S]*)$/i);
+      const m = topic.match(/^(\d{1,2})\b(?:\s+(?:questions?|cards?|flashcards?))?(?:\s+(?:on|about|for)\b)?\s*([\s\S]*)$/i);
       if (m) { count = parseInt(m[1], 10); topic = m[2].trim(); }
     }
     topic = topic.replace(/^(?:on|about|for)\s+/i, "").trim();
@@ -61,7 +61,9 @@
       "",
       "**Tips**",
       "- Type `/` to see this list above the message box, then pick one.",
-      "- **Study from your own notes:** attach a file (PDF, text or code) and use `/quiz`, `/flashcards` or `/learn` with no topic.",
+      "- **Study from your own material:** attach photos of homework or notes, a PDF, a Word, PowerPoint or Excel file, or a text file (up to 6 photos work with these commands), then send `/quiz`, `/flashcards` or `/learn` with no topic. You can also paste your notes right after the command, or give it a link.",
+      "- **Photos of paper:** send a picture of a worksheet or notes with no command and I'll read the words and problems and help with them.",
+      "- You can paste or drag files and screenshots straight into the chat.",
       "- Use `/quiz` or `/flashcards` on their own to study what we've just been talking about.",
       "- Add a number to choose the size, like `/quiz 5 the French Revolution`.",
     ].join("\n");
