@@ -11,6 +11,8 @@ process.on('unhandledRejection', (err) => {
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const vm = require("vm");
+const fs = require("fs");
 const dns = require("dns").promises;
 const net = require("net");
 const { createClient } = require("@supabase/supabase-js");
@@ -174,7 +176,7 @@ app.get("/profile", async (req, res) => {
 const MATH_VISUALS_GUIDE =
   'MATH VISUALS: when a picture helps with math (graphs of equations or inequalities, area under a curve, number lines and solution sets, geometry figures, fractions), put ONE fenced code block with the language "mathviz" holding a single JSON object right where the picture belongs, and still explain in words. Never draw ASCII art. JSON only: double quotes, no comments, no trailing commas, include only the fields you need. ' +
   'Graph / geometry: {"type":"graph","title":"","xMin":-5,"xMax":5,"yMin":-5,"yMax":5,"functions":[{"expr":"x^2-4","label":"y = x^2 - 4","dashed":false}],"inequalities":[{"expr":"2x+1","op":">"}],"areas":[{"expr":"x^2","from":0,"to":2}],"parametric":[{"x":"cos(t)","y":"sin(t)","t":[0,6.283]}],"polar":[{"r":"1+cos(theta)"}],"points":[{"x":2,"y":0,"label":"(2, 0)","open":false}],"segments":[{"from":[0,0],"to":[3,4],"label":"5"}],"vectors":[{"from":[0,0],"to":[2,1]}],"polygons":[{"points":[[0,0],[4,0],[0,3]],"vertexLabels":["A","B","C"],"sideLabels":["4","5","3"]}],"circles":[{"center":[0,0],"r":5}],"angles":[{"vertex":[0,0],"from":[4,0],"to":[0,3],"label":"90\u00b0","right":true}],"texts":[{"x":1,"y":1,"text":"note"}],"vlines":[2],"hlines":[1]}. ' +
-  'Inequality op is one of ">", ">=", "<", "<=" (dashed boundary for strict ones; use {"x":3,"op":">"} for a vertical boundary). Expressions use x (t or theta for curves), + - * / ^, implicit multiplication (2x), sin cos tan sqrt abs ln log exp, and pi and e. Use "geometry" shapes (polygons, circles, angles, segments) with real coordinates for triangles, circles, angle diagrams and the like; leave xMin..yMax out to auto-fit. ' +
+  'Inequality op is one of ">", ">=", "<", "<=" (dashed boundary for strict ones; use {"x":3,"op":">"} for a vertical boundary). Write every expression in plain text, never LaTeX or backslashes: use x (t or theta for curves), + - * / ^, implicit multiplication (2x), sin(x) cos(x) tan(x) sqrt(x) abs(x) ln(x) log(x) e^x, and pi. Examples: x^2 - 4, 1/(x-2), sin(2x)/x. Use "geometry" shapes (polygons, circles, angles, segments) with real coordinates for triangles, circles, angle diagrams and the like; leave xMin..yMax out to auto-fit. ' +
   'Number line: {"type":"numberline","min":-5,"max":5,"step":1,"denominator":4,"points":[{"value":3,"label":"3","open":false}],"intervals":[{"from":-2,"to":3,"fromOpen":true,"toOpen":false}],"arcs":[{"from":0,"to":4,"label":"+4"}]} (leave from or to out for infinity; arcs show jumps for addition and subtraction; denominator puts fraction ticks). ' +
   'Fractions: {"type":"fraction","items":[{"numerator":3,"denominator":4,"shape":"circle"},{"numerator":1,"denominator":2,"shape":"bar"}]}.';
 
@@ -277,8 +279,15 @@ app.post("/chat", async (req, res) => {
       return res.status(500).json({ error: detail });
     }
     let reply = data.choices[0].message.content;
-    // Safety net: they asked for a graph / number line but the model wrote code or ASCII instead of a drawable block
-    if (!hasImage && wantsMathVisual(lastUserText) && !/```(?:mathviz|mathgraph|math-visual|chart|graph)\b/i.test(reply)) {
+    // Safety net: drawings must really draw. Broken ```mathviz blocks are removed, and if they asked for a
+    // graph / number line but the model wrote code, ASCII or a broken block, we generate a proper drawing.
+    let hadGood = false;
+    if (!hasImage) {
+      const checked = dropBrokenMathBlocks(reply);
+      reply = checked.text;
+      hadGood = checked.good > 0;
+    }
+    if (!hasImage && !hadGood && wantsMathVisual(lastUserText) && !/```(?:chart|graph)\b/i.test(reply)) {
       try {
         const ctx = messages.slice(-5, -1).map(m => typeof m.content === "string" ? `${m.role}: ${m.content.slice(0, 600)}` : "").filter(Boolean).join("\n");
         const out = await generateMathVisual(lastUserText.replace(/^\s*\/\w+\s*/, ""), ctx);
@@ -341,7 +350,8 @@ const VISUAL_TYPES = ["graph", "geometry", "numberline", "fraction"];
 function cleanVisual(v) {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
   if (!VISUAL_TYPES.includes(String(v.type || "").toLowerCase().replace(/[\s_-]/g, ""))) return null;
-  try { return JSON.stringify(v).length <= 4000 ? v : null; } catch (_) { return null; }
+  try { if (JSON.stringify(v).length > 4000) return null; } catch (_) { return null; }
+  return drawError(v) ? null : v;
 }
 function cleanQuiz(raw, want) {
   const list = raw && Array.isArray(raw.questions) ? raw.questions : [];
@@ -471,7 +481,7 @@ app.post("/study", async (req, res) => {
       const md = await groqStudy(
         "You are a patient, friendly tutor. Teach the topic as a short lesson a curious student can follow. Use this structure with markdown headings: '## The big idea' (2-3 sentences, plain language), '## Key concepts' (3-5 bullets, each one short with a concrete example), '## Worked example' (one step-by-step example), '## Common mistakes' (2-3 bullets). Then end with '## Check yourself' containing 2 short questions and one line telling the student to reply with their answers so you can give feedback. Use $$...$$ for math if needed. If study material is provided, teach from it; if it is homework or a worksheet of problems, teach the concepts needed to solve them and include one of its problems as the worked example. Write math as LaTeX inside \\( ... \\) or $$ ... $$. Keep the whole lesson under 450 words. Do not use emojis. " + MATH_VISUALS_GUIDE + " For math topics, include one or two mathviz pictures (for example the graph, number line, or diagram being taught) inside the lesson; skip pictures for non-math topics.",
         source, { json: false, maxTokens: 1800 });
-      return res.json({ reply: md.trim() });
+      return res.json({ reply: dropBrokenMathBlocks(md.trim()).text });
     }
 
     if (mode === "quiz") {
@@ -523,20 +533,62 @@ function validMathVisual(v) {
   try { if (JSON.stringify(v).length > 12000) return null; } catch (_) { return null; }
   return { ...v, type: kind };
 }
+// Runs the SAME renderer the page uses (public/js/mathviz.js) inside a sandbox, so a drawing is only
+// accepted when it really draws. If the AI wrote an expression the renderer can't read, we find out here
+// (and can ask the AI to fix it) instead of the user seeing an error box.
+let mathvizModule = null;
+function getMathviz() {
+  if (mathvizModule !== null) return mathvizModule;
+  try {
+    const code = fs.readFileSync(path.join(__dirname, "public", "js", "mathviz.js"), "utf8");
+    const classList = { contains: () => false, add() {}, remove() {} };
+    const node = () => ({ style: {}, classList, appendChild() {}, append() {}, addEventListener() {}, setAttribute() {}, querySelector: () => null });
+    const sandbox = { console, Math, document: { body: { classList }, documentElement: { classList }, createElement: node } };
+    sandbox.window = sandbox;
+    vm.runInNewContext(code, sandbox, { timeout: 3000 });
+    mathvizModule = sandbox.Agent1102MathViz && sandbox.Agent1102MathViz._svgFor ? sandbox.Agent1102MathViz : false;
+  } catch (e) {
+    console.error("mathviz checker unavailable:", e.message);
+    mathvizModule = false;
+  }
+  return mathvizModule;
+}
+// -> null when the spec draws fine (or the checker isn't available), otherwise a short reason
+function drawError(spec) {
+  const mv = getMathviz();
+  if (!mv) return null;
+  try { const out = mv._svgFor(spec); return out && out.svg && out.svg.length > 200 ? null : "it drew nothing"; }
+  catch (e) { return e && e.message ? e.message : "it could not be drawn"; }
+}
+// Keeps good ```mathviz blocks in an AI reply and removes the ones that can't be drawn
+function dropBrokenMathBlocks(text) {
+  let broken = 0, good = 0;
+  const out = String(text).replace(/```(?:mathviz|mathgraph|math-visual)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => {
+    const mv = getMathviz();
+    let spec = null;
+    try { spec = mv ? mv.parseLoose(body) : JSON.parse(body); } catch (_) {}
+    if (spec && typeof spec === "object" && !Array.isArray(spec) && !drawError(spec)) { good++; return whole; }
+    broken++; return "";
+  }).replace(/\n{3,}/g, "\n\n").trim();
+  return { text: out, broken, good };
+}
+
 async function generateMathVisual(request, context) {
   const system =
     "You turn a math request into a drawing for a chat app. Reply with ONLY one JSON object (no code fences, no text around it) in this format. " + MATH_VISUALS_GUIDE +
     ' Also add a "caption" field: one or two short sentences saying what the picture shows and its key features (intercepts, vertex, asymptotes, solution set, side lengths). Pick xMin, xMax, yMin, yMax so every key feature is visible. Draw everything the user asked for in ONE picture. Always include at least one of: functions, inequalities, areas, parametric, polar, points, segments, polygons, circles, angles, intervals, arcs or items.';
   const user = (context ? `CONVERSATION SO FAR (for references like "that equation"):\n${context}\n\n` : "") + `REQUEST: ${request}`;
-  for (let attempt = 0; attempt < 2; attempt++) {
-    const raw = await groqStudy(system, user, { json: true, maxTokens: 2500 });
+  let feedback = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const raw = await groqStudy(system, user + feedback, { json: true, maxTokens: 2500 });
     const obj = parseJsonLoose(raw);
     const spec = validMathVisual(obj);
-    if (spec) {
-      const caption = clip(spec.caption, 400);
-      delete spec.caption;
-      return { caption, block: "```mathviz\n" + JSON.stringify(spec) + "\n```" };
-    }
+    if (!spec) { feedback = "\n\nYour last reply was not a usable drawing. Reply with ONLY one JSON object that has at least one of: functions, inequalities, areas, points, segments, polygons, circles, intervals, items."; continue; }
+    const caption = clip(spec.caption, 400);
+    delete spec.caption;
+    const bad = drawError(spec);
+    if (bad) { feedback = `\n\nYour last drawing failed: ${bad}. Write every expression in plain text such as x^2 - 4, sin(x), sqrt(x), 1/(x-2), abs(x), e^x (no LaTeX, no backslashes, no y = prefix) and reply with ONLY the corrected JSON object.`; continue; }
+    return { caption, block: "```mathviz\n" + JSON.stringify(spec) + "\n```" };
   }
   return null;
 }
