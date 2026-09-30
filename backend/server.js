@@ -187,8 +187,8 @@ const SYSTEM_PROMPT = [
   "3. MATH: whenever a problem involves math notation (equations, fractions, exponents, roots, sums, integrals, matrices, Greek letters, inequalities, etc.), write it as real math notation using LaTeX, not plain-text approximations like x^2 or sqrt(x). Use \\( ... \\) for inline math within a sentence, and $$ ... $$ on its own line for a standalone equation or a multi-step derivation. Never use a single $ for math (it is reserved for money) and never put LaTeX inside a code block unless the user specifically asked for LaTeX source code. Show step-by-step work as a sequence of $$ ... $$ blocks, one step per block, so each step is easy to read. Example: \\(a^2 + b^2 = c^2\\), or on its own line: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$. For chemistry, write chemical formulas and reaction equations with \\ce{...} inside the same math delimiters, for example \\(\\ce{H2O}\\) or $$\\ce{2H2 + O2 -> 2H2O}$$; never write a chemical formula as plain text like H2O when \\ce{} is available. The app also reads math aloud when the user asks it to; it speaks the meaning of your LaTeX (\"x squared\", \"the square root of x\", and so on), so writing correct LaTeX also makes read-aloud sound right.",
   "4. TABLES: when the user asks for a table, use a normal markdown table.",
   "5. Everything else: normal markdown.",
-  "6. ATTACHED FILES: the user can attach code or text files, PDFs, and zip archives. They appear inside <attached_file name=\"...\"> tags in the user's message. Read them carefully, refer to them by file name, and when you suggest a fix or a rewrite show the corrected code in a fenced code block. Never say you cannot open attached files; their full text is in the message. If a file was truncated, say so. A PDF's extracted text appears the same way, with \"--- Page N ---\" markers between pages; refer to page numbers when useful. A zip's contents appear as multiple attached_file blocks named \"zipname.zip/path/inside/the/zip\"; treat each as its own file but consider them together as one project when relevant, and note that non-text files inside the zip (images, binaries) were not included.",
-  "7. IMAGES: the user can attach up to three images at once (including pages rendered from a scanned/image-only PDF) and you can see them. Describe and analyze each one accurately, read any text in them, and never claim you cannot see images. When more than one image is attached, address them individually if they differ. Only say what is actually visible; if something is unclear, say so. Each attached image is one single photo/picture unless you can clearly see hard borders, gaps, or frames dividing it into separate panels \u2014 do not describe a single image as a \"four-panel collage\", \"grid\", or \"multiple photos\" just because it contains repeating or symmetric elements (tiles, windows, a 2x2-looking pattern, etc); if you are not certain it is genuinely a multi-panel collage, describe it as one image.",
+  "6. ATTACHED FILES: the user can attach code or text files, PDFs, Word (.docx) and PowerPoint (.pptx) files, and zip archives. They appear inside <attached_file name=\"...\"> tags in the user's message. Read them carefully, refer to them by file name, and when you suggest a fix or a rewrite show the corrected code in a fenced code block. Never say you cannot open attached files; their full text is in the message. If a file was truncated, say so. A PDF's extracted text appears the same way, with \"--- Page N ---\" markers between pages; refer to page numbers when useful. A zip's contents appear as multiple attached_file blocks named \"zipname.zip/path/inside/the/zip\"; treat each as its own file but consider them together as one project when relevant, and note that non-text files inside the zip (images, binaries) were not included.",
+  "7. IMAGES: the user can attach up to three images at once (including pages rendered from a scanned/image-only PDF) and you can see them. Describe and analyze each one accurately, read any text in them, and never claim you cannot see images. PAPERS AND HOMEWORK: when a photo shows a worksheet, homework, textbook page, handwritten notes or a whiteboard, read ALL of the text and every problem on it carefully (handwriting too), in order. Write math you read as LaTeX. If a word, number or symbol is hard to read, say exactly which one and give your best reading instead of silently guessing. Then do what the user asked: solve each problem step by step, explain, summarize or check their work; if they attached the photo with no message, briefly say what the paper contains and ask whether they want it solved, explained, or turned into study material with /quiz, /flashcards or /learn. When more than one image is attached, address them individually if they differ. Only say what is actually visible; if something is unclear, say so. Each attached image is one single photo/picture unless you can clearly see hard borders, gaps, or frames dividing it into separate panels \u2014 do not describe a single image as a \"four-panel collage\", \"grid\", or \"multiple photos\" just because it contains repeating or symmetric elements (tiles, windows, a 2x2-looking pattern, etc); if you are not certain it is genuinely a multi-panel collage, describe it as one image.",
   "8. IMAGE CREATION: this app can generate images. If the user wants a picture created and it was not created automatically, tell them to start their message with /image followed by a description, for example: /image a red sports car on a beach at sunset. Do not claim you cannot create images, and do not write code to make one unless they ask for code.",
   "9. IMAGE EDITING: this app can edit an existing image (either one the user attached, or the most recent image generated in the chat). If the user wants an image changed, tell them to start their message with /edit followed by a description of the change, for example: /edit make the sky purple. Do not claim you cannot edit images.",
   "10. ABOUT JYMER1102: if the user asks about jymer1102 (who they are, their site, their links, socials, projects, or how to contact them), share these two links, each as a plain URL on its own line so the app can show them as link preview cards: https://jymer1102.github.io/jymer1102 (their site) and https://linktr.ee/jymer1102 (all their links). Keep the text around them short and do not invent details about jymer1102 beyond what the links are.",
@@ -279,7 +279,7 @@ app.post("/chat", async (req, res) => {
 // quiz       -> multiple-choice questions, returned as a ```quiz JSON block the page turns into an interactive quiz
 // flashcards -> front/back cards, returned as a ```flashcards JSON block the page turns into flip cards
 // The JSON is validated here so the page never has to draw a broken quiz.
-const STUDY_MAX_MATERIAL = 24000;
+const STUDY_MAX_MATERIAL = 40000;
 
 async function groqStudy(system, user, { json, maxTokens }) {
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -341,13 +341,88 @@ function cleanCards(raw, want) {
   return cards.length ? { title: clip(raw.title, 80), cards } : null;
 }
 
+
+// Reads text out of photos/scans of paper (homework, notes, textbook pages) with the vision model.
+const MAX_STUDY_PHOTOS = 6; // read in batches of 3 (the vision model's per-request limit)
+
+async function transcribeChunk(list, start) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GROQ_API_KEY}` },
+    body: JSON.stringify({
+      model: VISION_MODEL,
+      max_tokens: 3500,
+      temperature: 0.1,
+      messages: [{
+        role: "user",
+        content: [
+          ...list.map(url => ({ type: "image_url", image_url: { url } })),
+          { type: "text", text: "Transcribe everything written or printed on these page photos, in reading order, image by image (start each with 'Image N:'). Copy all text exactly, including handwriting. Number every problem or question as it appears. Write math as LaTeX inside \\( ... \\). Describe any diagram, graph, table or figure briefly in [square brackets]. Mark words you truly cannot read as [illegible]. Do NOT solve anything and do NOT add commentary." + ` Number the images starting at Image ${start}.` },
+        ],
+      }],
+    }),
+  });
+  const data = await response.json();
+  if (!data.choices || !data.choices[0]) {
+    const err = new Error(data.error && data.error.message ? `AI error: ${String(data.error.message).slice(0, 300)}` : "I couldn't read the image");
+    err.rate = data.error && data.error.code === "rate_limit_exceeded";
+    throw err;
+  }
+  return String(data.choices[0].message.content || "").trim();
+}
+
+async function transcribeImages(images) {
+  const list = (Array.isArray(images) ? images : []).filter(u => typeof u === "string" && u.startsWith("data:image/")).slice(0, MAX_STUDY_PHOTOS);
+  const parts = [];
+  for (let i = 0; i < list.length; i += MAX_IMAGES_PER_REQUEST) {
+    parts.push(await transcribeChunk(list.slice(i, i + MAX_IMAGES_PER_REQUEST), i + 1));
+  }
+  return parts.join("\n\n");
+}
+
+// Turns a web page into plain readable text (for "/quiz https://...")
+function htmlToText(html) {
+  return decodeEntities(String(html)
+    .replace(/<(script|style|noscript|svg|nav|footer|header|form|aside)\b[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<\/(p|div|li|h[1-6]|tr|br|section|article)>|<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " "))
+    .replace(/[ \t\f\v]+/g, " ").replace(/\n\s*\n+/g, "\n\n").trim();
+}
+
 app.post("/study", async (req, res) => {
   const mode = String(req.body.mode || "");
   if (!["learn", "quiz", "flashcards"].includes(mode)) return res.status(400).json({ error: "Unknown study mode" });
-  const topic = clip(req.body.topic, 300);
-  const material = String(req.body.material || "").slice(0, STUDY_MAX_MATERIAL);
-  const context = String(req.body.context || "").slice(0, 6000);
-  if (!topic && !material.trim() && !context.trim()) return res.status(400).json({ error: "Nothing to study yet" });
+  let topic = clip(req.body.topic, 300);
+  let material = String(req.body.material || "").slice(0, STUDY_MAX_MATERIAL);
+  const context = String(req.body.context || "").slice(0, 12000);
+  const images = Array.isArray(req.body.images) ? req.body.images : [];
+  if (!topic && !material.trim() && !context.trim() && !images.length) return res.status(400).json({ error: "Nothing to study yet" });
+
+  try {
+    // A link as the topic: read that page and study it
+    if (/^https?:\/\/\S+$/i.test(topic) && !material.trim()) {
+      try {
+        const { html } = await fetchPageHtml(new URL(topic));
+        const text = htmlToText(html).slice(0, STUDY_MAX_MATERIAL);
+        if (text.length > 200) { material = `--- ${topic} ---\n${text}`; topic = ""; }
+        else return res.status(422).json({ error: "I couldn't read any text on that page. Try pasting the text instead." });
+      } catch (_) {
+        return res.status(422).json({ error: "I couldn't open that link. Try pasting the text instead." });
+      }
+    }
+    // Photos of paper: read the words and problems off them first
+    if (images.length) {
+      const seen = await transcribeImages(images);
+      if (seen.replace(/\W/g, "").length < 15) return res.status(422).json({ error: "I couldn't find readable text in that photo. Try a sharper, well-lit picture with the whole page in frame." });
+      material = (material ? material + "\n\n" : "") + "--- Text read from the photo(s) ---\n" + seen;
+      material = material.slice(0, STUDY_MAX_MATERIAL);
+    }
+  } catch (err) {
+    if (err.rate) return res.status(429).json({ error: "Token limit reached. Please try again in a minute." });
+    console.error("Study prep error:", err);
+    return res.status(500).json({ error: err.message && /^AI error/.test(err.message) ? err.message : "Something went wrong" });
+  }
   const count = Math.max(1, Math.min(parseInt(req.body.count, 10) || (mode === "quiz" ? 8 : 12), mode === "quiz" ? 20 : 40));
 
   const source =
@@ -358,14 +433,14 @@ app.post("/study", async (req, res) => {
   try {
     if (mode === "learn") {
       const md = await groqStudy(
-        "You are a patient, friendly tutor. Teach the topic as a short lesson a curious student can follow. Use this structure with markdown headings: '## The big idea' (2-3 sentences, plain language), '## Key concepts' (3-5 bullets, each one short with a concrete example), '## Worked example' (one step-by-step example), '## Common mistakes' (2-3 bullets). Then end with '## Check yourself' containing 2 short questions and one line telling the student to reply with their answers so you can give feedback. Use $$...$$ for math if needed. If study material is provided, teach from it. Keep the whole lesson under 450 words. Do not use emojis.",
+        "You are a patient, friendly tutor. Teach the topic as a short lesson a curious student can follow. Use this structure with markdown headings: '## The big idea' (2-3 sentences, plain language), '## Key concepts' (3-5 bullets, each one short with a concrete example), '## Worked example' (one step-by-step example), '## Common mistakes' (2-3 bullets). Then end with '## Check yourself' containing 2 short questions and one line telling the student to reply with their answers so you can give feedback. Use $$...$$ for math if needed. If study material is provided, teach from it; if it is homework or a worksheet of problems, teach the concepts needed to solve them and include one of its problems as the worked example. Write math as LaTeX inside \\( ... \\) or $$ ... $$. Keep the whole lesson under 450 words. Do not use emojis.",
         source, { json: false, maxTokens: 1800 });
       return res.json({ reply: md.trim() });
     }
 
     if (mode === "quiz") {
       const raw = await groqStudy(
-        `You write multiple-choice quizzes. Reply with ONLY a JSON object: {"title": string, "questions": [{"question": string, "options": [4 strings], "answer": index 0-3 of the correct option, "explanation": one or two sentences on why it is correct}]}. Write exactly ${count} questions. Exactly one option is correct, the wrong options must be plausible, and the correct answer must vary in position. Do not put letters like "A)" in the options. Mix easy and harder questions. If study material is provided, only ask about what it contains.`,
+        `You write multiple-choice quizzes. Reply with ONLY a JSON object: {"title": string, "questions": [{"question": string, "options": [4 strings], "answer": index 0-3 of the correct option, "explanation": one or two sentences on why it is correct}]}. Write exactly ${count} questions. Exactly one option is correct, the wrong options must be plausible, and the correct answer must vary in position. Do not put letters like "A)" in the options. Mix easy and harder questions. If study material is provided, only ask about what it contains. If the material is homework or a worksheet of problems, write questions that test the same skills and concepts (you may reuse or vary the problems); write math as LaTeX inside \\( ... \\).`,
         source, { json: true, maxTokens: 4000 });
       const quiz = cleanQuiz(parseJsonLoose(raw), count);
       if (!quiz) return res.status(502).json({ error: "I couldn't build a quiz from that. Try again or give me a more specific topic." });
