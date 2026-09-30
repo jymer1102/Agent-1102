@@ -34,6 +34,16 @@
     return !!p && p.cmd.name === "help";
   }
 
+  // "/graph y = x^2" -> { request: "y = x^2" }; "/numberline -2 < x" -> { request: "number line: -2 < x" }
+  function parseGraph(text) {
+    const m = String(text || "").trim().match(/^\/([a-z]+)\b\s*([\s\S]*)$/i);
+    const cmd = m && findCommand(m[1]);
+    if (!cmd || cmd.name !== "graph") return null;
+    let request = m[2].trim();
+    if (m[1].toLowerCase() === "numberline" && request) request = "number line: " + request;
+    return { request };
+  }
+
   // -> { mode: "learn"|"quiz"|"flashcards", topic, count } or null
   function parseStudy(text) {
     const p = parseCommand(text);
@@ -182,5 +192,5 @@
     }
   });
 
-  window.Agent1102Commands = { COMMANDS, parseCommand, parseStudy, isHelp, helpMarkdown };
+  window.Agent1102Commands = { COMMANDS, parseCommand, parseStudy, parseGraph, isHelp, helpMarkdown };
 })();
