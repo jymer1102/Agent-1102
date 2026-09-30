@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
   //  Attachment limits (change these if you like)
   // ------------------------------------------------------------------
   const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // photos are shrunk before sending
-  const MAX_IMAGES = 3;                     // matches the backend's vision-model limit (VISION_MODEL supports 3/request)
+  const MAX_IMAGES = 6;                     // up to 6 photos; study commands read them all (in batches of 3), a normal chat message reads the first 3
   const MAX_FILE_BYTES = 300 * 1024;        // biggest raw code/text file you can attach
   const MAX_PDF_BYTES = 20 * 1024 * 1024;   // biggest PDF you can attach
   const MAX_ZIP_BYTES = 25 * 1024 * 1024;   // biggest zip you can attach
@@ -49,6 +49,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function isPdf(file) {
     return file.type === "application/pdf" || fileExt(file.name) === "pdf";
   }
+  function isDocx(file) { return fileExt(file.name) === "docx" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; }
+  function isPptx(file) { return fileExt(file.name) === "pptx" || file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation"; }
+  function isXlsx(file) { return fileExt(file.name) === "xlsx" || file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; }
+  function isOpenDoc(file) { return ["odt", "odp", "ods"].includes(fileExt(file.name)); }
+  function isRtf(file) { return fileExt(file.name) === "rtf" || file.type === "application/rtf" || file.type === "text/rtf"; }
+  function isOldOffice(file) { return ["doc", "ppt", "xls", "pages", "key", "numbers"].includes(fileExt(file.name)); }
   function isZip(file) {
     return ["application/zip", "application/x-zip-compressed", "application/x-zip"].includes(file.type) || fileExt(file.name) === "zip";
   }
@@ -93,7 +99,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const maxSize = 1024;
+          const maxSize = 1600; // large enough to keep handwriting and small print readable
           let w = img.width, h = img.height;
           if (w > maxSize || h > maxSize) { if (w > h) { h = (h/w)*maxSize; w = maxSize; } else { w = (w/h)*maxSize; h = maxSize; } }
           canvas.width = w; canvas.height = h;
@@ -101,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ctx.fillStyle = "#ffffff";           // transparent PNGs would otherwise turn black
           ctx.fillRect(0, 0, w, h);
           ctx.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL("image/jpeg", 0.8));
+          resolve(canvas.toDataURL("image/jpeg", 0.85));
         };
         img.onerror = () => { toast("Failed to load image"); resolve(null); };
         img.src = e.target.result;
@@ -124,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (fileInput) {
     fileInput.multiple = true;
-    fileInput.accept = "image/*,.heic,.heif,.pdf,.zip,text/*," + [...TEXT_EXTS].map(e => "." + e).join(",");
+    fileInput.accept = "image/*,.heic,.heif,.pdf,.docx,.pptx,.xlsx,.odt,.odp,.ods,.rtf,.zip,text/*," + [...TEXT_EXTS].map(e => "." + e).join(",");
   }
 
   function renderAttachments() {
@@ -273,6 +279,109 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Word (.docx) and PowerPoint (.pptx) files are zips of XML: pull the text out of them.
+  const xmlText = x => String(x)
+    .replace(/<w:tab\/>/g, "\t").replace(/<\/w:p>|<w:br\/>|<\/a:p>/g, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+  async function addOfficeFile(file, kind) {
+    if (pendingFiles.length >= MAX_FILES) { toast(`You can attach up to ${MAX_FILES} files at once`); return; }
+    if (file.size > MAX_PDF_BYTES) { toast(`"${file.name}" is too large (max ${MAX_PDF_BYTES / (1024 * 1024)}MB)`); return; }
+    let JSZip;
+    try { JSZip = await ensureJsZip(); } catch (err) { console.error(err); toast("Couldn't load the file reader. Check your connection and try again"); return; }
+    try {
+      const zip = await JSZip.loadAsync(file);
+      let text = "";
+      if (kind === "docx") {
+        const doc = zip.file("word/document.xml");
+        if (!doc) throw new Error("no document.xml");
+        text = xmlText(await doc.async("text"));
+        for (const n of ["word/footnotes.xml", "word/endnotes.xml"]) {
+          const f = zip.file(n); if (f) text += "\n" + xmlText(await f.async("text"));
+        }
+      } else if (kind === "xlsx") {
+        text = await xlsxToText(zip);
+      } else if (kind === "odf") {
+        const c = zip.file("content.xml");
+        if (!c) throw new Error("no content.xml");
+        text = String(await c.async("text"))
+          .replace(/<text:tab\/>/g, "\t").replace(/<text:line-break\/>/g, "\n")
+          .replace(/<\/text:p>|<\/text:h>|<\/table:table-row>|<\/draw:page>/g, "\n")
+          .replace(/<\/table:table-cell>/g, "\t")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+      } else {
+        const slides = Object.keys(zip.files).filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+          .sort((a, b) => parseInt(a.match(/(\d+)\.xml$/)[1], 10) - parseInt(b.match(/(\d+)\.xml$/)[1], 10));
+        for (let i = 0; i < slides.length; i++) {
+          const t = xmlText(await zip.file(slides[i]).async("text")).replace(/\n{2,}/g, "\n").trim();
+          if (t) text += `--- Slide ${i + 1} ---\n${t}\n\n`;
+          const notes = zip.file(`ppt/notesSlides/notesSlide${slides[i].match(/(\d+)\.xml$/)[1]}.xml`);
+          if (notes) { const nt = xmlText(await notes.async("text")).replace(/\n{2,}/g, "\n").trim(); if (nt) text += `Notes: ${nt}\n\n`; }
+        }
+      }
+      text = text.replace(/\n{3,}/g, "\n\n").trim();
+      if (!text) { toast(`"${file.name}" has no text I can read (it may just contain pictures)`); return; }
+      addExtractedText(file.name, text);
+    } catch (err) {
+      console.error(err);
+      toast(`Couldn't read "${file.name}". Is it a valid ${{ docx: "Word (.docx)", pptx: "PowerPoint (.pptx)", xlsx: "Excel (.xlsx)", odf: "OpenDocument" }[kind]} file?`);
+    }
+  }
+
+  // Excel (.xlsx): read every sheet as tab-separated rows
+  async function xlsxToText(zip) {
+    const unesc = x => String(x).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+    const shared = [];
+    const ss = zip.file("xl/sharedStrings.xml");
+    if (ss) {
+      const xml = await ss.async("text");
+      for (const m of xml.matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) shared.push(unesc([...m[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join("")));
+    }
+    let names = [];
+    const wb = zip.file("xl/workbook.xml");
+    if (wb) names = [...(await wb.async("text")).matchAll(/<sheet\b[^>]*name="([^"]*)"/g)].map(m => unesc(m[1]));
+    const sheets = Object.keys(zip.files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n))
+      .sort((a, b) => parseInt(a.match(/(\d+)\.xml$/)[1], 10) - parseInt(b.match(/(\d+)\.xml$/)[1], 10));
+    let out = "";
+    for (let i = 0; i < sheets.length; i++) {
+      const xml = await zip.file(sheets[i]).async("text");
+      const rows = [];
+      for (const r of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+        const cells = [];
+        for (const c of r[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+          const attrs = c[1], inner = c[2] || "";
+          const t = (/\bt="(\w+)"/.exec(attrs) || [])[1];
+          const v = (/<v>([\s\S]*?)<\/v>/.exec(inner) || [])[1];
+          let val = "";
+          if (t === "s" && v != null) val = shared[parseInt(v, 10)] || "";
+          else if (t === "inlineStr") val = unesc([...inner.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(x => x[1]).join(""));
+          else if (v != null) val = unesc(v);
+          cells.push(val);
+        }
+        if (cells.some(x => x !== "")) rows.push(cells.join("\t"));
+      }
+      if (rows.length) out += `--- Sheet: ${names[i] || i + 1} ---\n${rows.join("\n")}\n\n`;
+    }
+    return out;
+  }
+
+  // Rich Text Format (.rtf): strip the control codes, keep the words
+  async function addRtfFile(file) {
+    if (pendingFiles.length >= MAX_FILES) { toast(`You can attach up to ${MAX_FILES} files at once`); return; }
+    if (file.size > MAX_FILE_BYTES * 4) { toast(`"${file.name}" is too large`); return; }
+    let raw;
+    try { raw = await file.text(); } catch { toast(`Couldn't read "${file.name}"`); return; }
+    const text = raw
+      .replace(/\{\\\*[^{}]*\}/g, "")
+      .replace(/\{\\(?:fonttbl|colortbl|stylesheet|info|pict)[\s\S]*?\}\}?/g, "")
+      .replace(/\\'([0-9a-f]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/\\(?:par|line)\b ?/g, "\n").replace(/\\tab\b ?/g, "\t")
+      .replace(/\\[a-z]+-?\d* ?/gi, "").replace(/\\([\\{}])/g, "$1").replace(/[{}]/g, "")
+      .replace(/\n{3,}/g, "\n\n").trim();
+    addExtractedText(file.name, text);
+  }
+
   // Zips: extract every readable text/code file inside (skipping images, binaries,
   // and anything oversized), each added as its own attachment named "zip/path/to/file".
   async function addZipFile(file) {
@@ -305,23 +414,50 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  async function handleFiles(files) {
+    files = [...files];
+    if (!files.length) return;
+    for (const file of files) {
+      if (file.type.startsWith("image/") || isHeic(file)) await addImage(file);
+      else if (isPdf(file)) await addPdfFile(file);
+      else if (isDocx(file)) await addOfficeFile(file, "docx");
+      else if (isPptx(file)) await addOfficeFile(file, "pptx");
+      else if (isXlsx(file)) await addOfficeFile(file, "xlsx");
+      else if (isOpenDoc(file)) await addOfficeFile(file, "odf");
+      else if (isRtf(file)) await addRtfFile(file);
+      else if (isZip(file)) await addZipFile(file);
+      else if (isTextFile(file)) await addTextFile(file);
+      else if (isOldOffice(file)) toast(`"${file.name}" is an older format I can't read. Save it as .docx, .pptx, .xlsx or PDF and try again`);
+      else toast(`"${file.name}" isn't a supported file type yet (photos, PDF, Word, PowerPoint, Excel, OpenDocument, RTF, text/code and zip work)`);
+    }
+    renderAttachments();
+  }
+
   if (uploadBtn && fileInput) {
-    uploadBtn.title = "Attach images, code/text files, a PDF, or a zip";
+    uploadBtn.title = "Attach photos, PDFs, Word/PowerPoint files, text/code, or a zip";
     uploadBtn.addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", async () => {
       const files = [...fileInput.files];
       fileInput.value = "";
-      if (!files.length) return;
-      for (const file of files) {
-        if (file.type.startsWith("image/") || isHeic(file)) await addImage(file);
-        else if (isPdf(file)) await addPdfFile(file);
-        else if (isZip(file)) await addZipFile(file);
-        else if (isTextFile(file)) await addTextFile(file);
-        else toast(`"${file.name}" isn't a supported file type yet`);
-      }
-      renderAttachments();
+      await handleFiles(files);
     });
   }
+
+  // Paste a screenshot / copied file straight into the message box, or drag files onto the chat
+  const pasteTarget = document.getElementById("input");
+  if (pasteTarget) {
+    pasteTarget.addEventListener("paste", e => {
+      const files = [...((e.clipboardData && e.clipboardData.files) || [])];
+      if (!files.length) return; // plain text paste: leave it alone (it can be your notes)
+      e.preventDefault();
+      handleFiles(files);
+    });
+  }
+  ["dragover", "drop"].forEach(evt => document.addEventListener(evt, e => {
+    if (!e.dataTransfer || ![...(e.dataTransfer.types || [])].includes("Files")) return;
+    e.preventDefault();
+    if (evt === "drop") handleFiles(e.dataTransfer.files);
+  }));
 
   // --- Voice input setup ---
   let recognition = null;
@@ -543,6 +679,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return out.join("\n\n");
   }
 
+  // Photos and files from the most recent earlier message that had any (so: send a photo, then just type /quiz)
+  function recentAttachments(list) {
+    for (let i = list.length - 1, seen = 0; i >= 0 && seen < 10; i--, seen++) {
+      const m = list[i];
+      if (!m || m.role !== "user") continue;
+      const parts = Array.isArray(m.content) ? m.content : null;
+      const images = parts ? parts.filter(p => p && p.type === "image_url" && p.image_url && p.image_url.url).map(p => p.image_url.url) : [];
+      const text = typeof m.content === "string" ? m.content : parts ? parts.filter(p => p && p.type === "text").map(p => p.text).join("\n") : "";
+      const material = materialFromMessage(text);
+      if (images.length || material) return { images, material };
+    }
+    return { images: [], material: "" };
+  }
+
   // The recent conversation as plain text, so "/quiz" on its own can quiz what was just discussed
   function studyContext(list) {
     const helpMd = Agent1102Commands.helpMarkdown();
@@ -553,7 +703,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }).slice(-6).map(m => {
       let t = typeof m.content === "string" ? m.content
         : Array.isArray(m.content) ? m.content.filter(p => p && p.type === "text").map(p => p.text).join(" ") : "";
-      t = t.replace(/<attached_file[^>]*>[\s\S]*?<\/attached_file>/g, "[attached file]").replace(/```[\s\S]*?```/g, "").trim().slice(0, 1200);
+      t = t.replace(/<attached_file[^>]*>[\s\S]*?<\/attached_file>/g, "[attached file]").replace(/```[\s\S]*?```/g, "").trim().slice(0, m.role === "user" ? 5000 : 1500);
       return t ? `${m.role === "user" ? "Student" : "Tutor"}: ${t}` : "";
     }).filter(Boolean).join("\n");
   }
@@ -578,32 +728,64 @@ document.addEventListener("DOMContentLoaded", () => {
     flashcards: "What should the flashcards cover? For example: **/flashcards 10 Spanish greetings**. You can also attach your notes and type **/flashcards**, or just type it after we've talked about something.",
   };
 
+  // Joins attached files into one block, giving each a fair share of the size budget
+  const STUDY_MATERIAL_CHARS = 40000;
+  function buildMaterial(files) {
+    if (!files.length) return "";
+    const each = Math.max(4000, Math.floor(STUDY_MATERIAL_CHARS / files.length));
+    return files.map(f => `--- ${f.name} ---\n${f.text.slice(0, each)}`).join("\n\n");
+  }
+
+  // A long or multi-line "topic" is really pasted notes, not a topic
+  function splitPastedNotes(cmd, material) {
+    const t = cmd.topic || "";
+    if (t.length > 200 || /\n/.test(t)) {
+      return { cmd: { ...cmd, topic: "" }, material: (material ? material + "\n\n" : "") + "--- Pasted notes ---\n" + t.slice(0, STUDY_MATERIAL_CHARS) };
+    }
+    return { cmd, material };
+  }
+
   async function runStudy(cmd, opts) {
     opts = opts || {};
-    // Context = the conversation before this command
-    const context = studyContext(opts.skipUser ? history.slice(0, -1) : history);
-    const material = opts.material || "";
+    let images = opts.images || []; // data: URLs of photos of paper/notes
+    const before = opts.skipUser ? history.slice(0, -1) : history; // the conversation before this command
+    const context = studyContext(before);
+    const split = splitPastedNotes(cmd, opts.material || "");
+    cmd = split.cmd;
+    let material = split.material;
+    let usedEarlier = false;
+    // Nothing given with the command itself: reuse the photos/files sent earlier in this chat
+    if (!cmd.topic && !material.trim() && !images.length) {
+      const rec = recentAttachments(before);
+      if (rec.images.length || rec.material) { images = rec.images.slice(-6); material = rec.material; usedEarlier = true; }
+    }
+    const hasSource = !!(cmd.topic || material.trim() || images.length);
+
     if (!opts.skipUser) {
       const shown = opts.modelText || `/${cmd.mode} ${cmd.topic}`.trim();
-      addMsg("user", shown);
-      history.push({ role: "user", content: shown });
+      const sent = usedEarlier ? [] : images;
+      addMsg("user", shown, sent);
+      history.push({ role: "user", content: sent.length
+        ? [...sent.map(url => ({ type: "image_url", image_url: { url } })), { type: "text", text: shown }]
+        : shown });
       input.value = "";
       clearAttachments();
     }
 
-    if (!cmd.topic && !material.trim() && !context.trim()) {
+    if (!hasSource && !context.trim()) {
       addMsg("ai", STUDY_TIP[cmd.mode]);
       history.push({ role: "assistant", content: STUDY_TIP[cmd.mode] });
       if (typeof saveCurrentChat === "function") saveCurrentChat();
       return;
     }
 
-    const thinking = addThinking(STUDY_LABEL[cmd.mode]);
+    const thinking = addThinking(images.length ? `Reading your ${images.length > 1 ? "photos" : "photo"}...` : usedEarlier ? "Reading your file..." : STUDY_LABEL[cmd.mode]);
+    if (images.length) setTimeout(() => { if (thinking.wrap.isConnected) thinking.setLabel(STUDY_LABEL[cmd.mode]); }, 6000);
     try {
       const res = await fetch(`${BACKEND_URL}/study`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: cmd.mode, topic: cmd.topic, count: cmd.count, material, context: cmd.topic || material.trim() ? "" : context }),
+        body: JSON.stringify({ mode: cmd.mode, topic: cmd.topic, count: cmd.count, material, images, context: hasSource ? "" : context }),
       });
       const data = await res.json();
       thinking.wrap.remove();
@@ -659,11 +841,15 @@ document.addEventListener("DOMContentLoaded", () => {
         : (last.content || []).filter(p => p && p.type === "text").map(p => p.text).join("\n");
       const hasImg = Array.isArray(last.content) && last.content.some(p => p && p.type === "image_url");
 
-      if (!hasImg) {
+      {
         const typedPart = Agent1102Render.parseAttachedFiles(text).rest;
-        if (Agent1102Commands.isHelp(typedPart)) { await runHelp(typedPart, { skipUser: true }); return; }
+        if (!hasImg && Agent1102Commands.isHelp(typedPart)) { await runHelp(typedPart, { skipUser: true }); return; }
         const study = Agent1102Commands.parseStudy(typedPart);
-        if (study) { await runStudy(study, { skipUser: true, material: materialFromMessage(text) }); return; }
+        if (study) {
+          const imgs = hasImg ? last.content.filter(p => p && p.type === "image_url").map(p => p.image_url.url) : [];
+          await runStudy(study, { skipUser: true, material: materialFromMessage(text), images: imgs });
+          return;
+        }
       }
 
       if (!hasImg && !/<attached_file/.test(text)) {
@@ -691,14 +877,15 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.disabled = true;
     try {
       // 0) Slash commands: /help and the study modes (/learn, /quiz, /flashcards)
-      if (!hasImage) {
-        if (!files.length && Agent1102Commands.isHelp(typed)) { await runHelp(typed); return; }
-        const study = Agent1102Commands.parseStudy(typed);
-        if (study) {
-          const material = files.map(f => `--- ${f.name} ---\n${f.text}`).join("\n\n");
-          await runStudy(study, { modelText: withFileBlocks(files, typed), material });
-          return;
-        }
+      if (!hasImage && !files.length && Agent1102Commands.isHelp(typed)) { await runHelp(typed); return; }
+      const study = Agent1102Commands.parseStudy(typed);
+      if (study) {
+        await runStudy(study, {
+          modelText: withFileBlocks(files, typed),
+          material: buildMaterial(files),
+          images: images.map(im => `data:${im.type};base64,${im.base64}`),
+        });
+        return;
       }
 
       // 1) Is the user asking for an image to be created or an existing one edited?
@@ -718,6 +905,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // anything, the AI just gets the attachment(s) and whatever they typed.
       const modelText = withFileBlocks(files, typed);
 
+      if (images.length > 3) toast("A normal message can read the first 3 photos. To study from up to 6, send them with /quiz, /flashcards or /learn.");
       const imgSrcs = images.map(im => `data:${im.type};base64,${im.base64}`);
       addMsg("user", modelText, imgSrcs);
 
