@@ -10,6 +10,7 @@
     { name: "learn",      args: "<topic>",              desc: "Learn a topic (or your notes / a photo of them) step by step", icon: "fa-graduation-cap", group: "Study", aliases: ["teach"] },
     { name: "quiz",       args: "[number] <topic>",     desc: "Quiz yourself on a topic, your notes, a photo of homework, or a link", icon: "fa-clipboard-question", group: "Study", aliases: ["test"] },
     { name: "flashcards", args: "[number] <topic>",     desc: "Flashcards from a topic, your notes, a photo, or a file",         icon: "fa-clone",            group: "Study", aliases: ["flashcard", "cards"] },
+    { name: "graph",      args: "<function, shape or number line>", desc: "Draw a math graph, number line, geometry diagram or fractions", icon: "fa-chart-line", group: "Create", aliases: ["plot", "numberline"] },
     { name: "image",      args: "<description>",        desc: "Generate an image",                          icon: "fa-image",            group: "Create", aliases: ["imagine", "img", "draw"] },
     { name: "edit",       args: "<change>",             desc: "Edit an attached image, or the last one I made", icon: "fa-wand-magic-sparkles", group: "Create" },
   ];
@@ -66,6 +67,7 @@
       "- You can paste or drag files and screenshots straight into the chat.",
       "- Use `/quiz` or `/flashcards` on their own to study what we've just been talking about.",
       "- Add a number to choose the size, like `/quiz 5 the French Revolution`.",
+      "- **Math visuals:** `/graph y = x^2 - 4`, `/graph number line -2 < x <= 3`, or `/graph right triangle with sides 3, 4, 5`. You can also just ask in normal chat, and `/learn` and `/quiz` use pictures for math topics.",
     ].join("\n");
   }
 
