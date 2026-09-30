@@ -276,7 +276,23 @@ app.post("/chat", async (req, res) => {
       const detail = data.error && data.error.message ? `AI error: ${String(data.error.message).slice(0, 300)}` : "No response from AI";
       return res.status(500).json({ error: detail });
     }
-    res.json({ reply: data.choices[0].message.content });
+    let reply = data.choices[0].message.content;
+    // Safety net: they asked for a graph / number line but the model wrote code or ASCII instead of a drawable block
+    if (!hasImage && wantsMathVisual(lastUserText) && !/```(?:mathviz|mathgraph|math-visual|chart|graph)\b/i.test(reply)) {
+      try {
+        const ctx = messages.slice(-5, -1).map(m => typeof m.content === "string" ? `${m.role}: ${m.content.slice(0, 600)}` : "").filter(Boolean).join("\n");
+        const out = await generateMathVisual(lastUserText.replace(/^\s*\/\w+\s*/, ""), ctx);
+        if (out) {
+          // drop plotting code (matplotlib etc.) the user can't run here, then show the real picture
+          reply = reply.replace(/```(?:python|py|javascript|js|r|matlab|julia)?\s*\n[\s\S]*?(?:matplotlib|plt\.|numpy|plotly|ggplot|desmos|geogebra)[\s\S]*?```/gi, "").trim();
+          // ...and ASCII-art number lines / axes drawn in an unlabeled block
+          reply = reply.replace(/```(?:text|txt|ascii|plaintext)?[ \t]*\n([\s\S]*?)```/gi, (whole, body) =>
+            /(<-{2,}|-{2,}>|\|-{2,}|-{2,}\||\+-{2,}|-{3,}\+|\^\s*\n|\bo-{2,}|-{2,}o\b)/.test(body) && !/[a-z]{4,}\s*\(|=\s*[a-z]/i.test(body.replace(/\bx\b/g, "")) ? "" : whole).trim();
+          reply = (reply ? reply + "\n\n" : "") + out.block;
+        }
+      } catch (e) { console.error("Graph fallback failed:", e.message); }
+    }
+    res.json({ reply });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Something went wrong" });
@@ -478,6 +494,75 @@ app.post("/study", async (req, res) => {
   } catch (err) {
     if (err.rate) return res.status(429).json({ error: "Token limit reached. Please try again in a minute." });
     console.error("Study error:", err);
+    res.status(500).json({ error: err.message && /^AI error/.test(err.message) ? err.message : "Something went wrong" });
+  }
+});
+
+// --- MATH PICTURES (/graph, and a safety net for graph requests in normal chat) ---
+// The chat model sometimes answers "graph y = x^2" with Python/ASCII instead of the ```mathviz block the page can draw.
+// This asks the model for ONLY the drawing JSON, validates it, and returns a block the page turns into a real graph.
+function visualKind(v) {
+  const t = String(v.type || "").toLowerCase().replace(/[\s_-]/g, "");
+  if (["numberline", "number"].includes(t)) return "numberline";
+  if (["fraction", "fractions", "fractionmodel"].includes(t)) return "fraction";
+  if (["graph", "plane", "function", "functions", "geometry", "coordinateplane", "cartesian", "polar", "parametric", "diagram", "mathviz", ""].includes(t)) {
+    if (!t) {
+      if (Array.isArray(v.items)) return "fraction";
+      if (Array.isArray(v.intervals) || Array.isArray(v.arcs) || (Array.isArray(v.points) && v.points.some(p => p && p.value != null))) return "numberline";
+    }
+    return "graph";
+  }
+  return null;
+}
+const VISUAL_CONTENT_KEYS = ["functions", "inequalities", "areas", "parametric", "polar", "points", "segments", "vectors", "polygons", "circles", "angles", "texts", "vlines", "hlines", "intervals", "arcs", "items"];
+function validMathVisual(v) {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const kind = visualKind(v);
+  if (!kind) return null;
+  if (kind === "fraction" ? !(Array.isArray(v.items) && v.items.length) && v.numerator == null : !VISUAL_CONTENT_KEYS.some(k => Array.isArray(v[k]) && v[k].length)) return null;
+  try { if (JSON.stringify(v).length > 12000) return null; } catch (_) { return null; }
+  return { ...v, type: kind };
+}
+async function generateMathVisual(request, context) {
+  const system =
+    "You turn a math request into a drawing for a chat app. Reply with ONLY one JSON object (no code fences, no text around it) in this format. " + MATH_VISUALS_GUIDE +
+    ' Also add a "caption" field: one or two short sentences saying what the picture shows and its key features (intercepts, vertex, asymptotes, solution set, side lengths). Pick xMin, xMax, yMin, yMax so every key feature is visible. Draw everything the user asked for in ONE picture. Always include at least one of: functions, inequalities, areas, parametric, polar, points, segments, polygons, circles, angles, intervals, arcs or items.';
+  const user = (context ? `CONVERSATION SO FAR (for references like "that equation"):\n${context}\n\n` : "") + `REQUEST: ${request}`;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const raw = await groqStudy(system, user, { json: true, maxTokens: 2500 });
+    const obj = parseJsonLoose(raw);
+    const spec = validMathVisual(obj);
+    if (spec) {
+      const caption = clip(spec.caption, 400);
+      delete spec.caption;
+      return { caption, block: "```mathviz\n" + JSON.stringify(spec) + "\n```" };
+    }
+  }
+  return null;
+}
+const wantsMathVisual = t => {
+  t = String(t || "");
+  if (/^\s*\/(graph|plot|numberline)\b/i.test(t)) return true;
+  // they want to write/run plotting code or a spreadsheet chart, not see a picture
+  if (/\b(python|matplotlib|numpy|javascript|code|script|excel|google sheets|tikz|latex|desmos|geogebra|ggplot|r language)\b/i.test(t)) return false;
+  if (/\bnumber\s?lines?\b/i.test(t)) return true;
+  if (/\b(bar|pie|scatter|histogram)\s+(graph|chart|plot)\b/i.test(t)) return false; // data charts use the chart block
+  if (/\b(graph|plot|sketch)\b/i.test(t) &&
+      /(\b[xy]\b|\b\d|\bsin|\bcos|\btan|\blog|\bln\b|sqrt|function|equation|inequalit|parabola|\bline\b|curve|circle|ellipse|hyperbola|slope|intercept|vertex|asymptote|quadratic|linear|exponential|cubic|absolute value|points?\b)/i.test(t)) return true;
+  return /\b(draw|sketch|show|illustrate|diagram|visuali[sz]e)\b[^.?!\n]{0,60}\b(triangle|polygon|angle|fractions?|parabola|unit circle|vector|rectangle|square)\b/i.test(t);
+};
+
+app.post("/graph", async (req, res) => {
+  const request = clip(req.body.request, 1000);
+  const context = String(req.body.context || "").slice(0, 6000);
+  if (!request && !context.trim()) return res.status(400).json({ error: "Tell me what to draw" });
+  try {
+    const out = await generateMathVisual(request || "Draw the math from the conversation so far.", context);
+    if (!out) return res.status(502).json({ error: "I couldn't draw that one. Try describing it a little differently, for example: y = x^2 - 4, or a number line for -2 < x <= 3." });
+    res.json({ reply: (out.caption ? out.caption + "\n\n" : "") + out.block });
+  } catch (err) {
+    if (err.rate) return res.status(429).json({ error: "Token limit reached. Please try again in a minute." });
+    console.error("Graph error:", err);
     res.status(500).json({ error: err.message && /^AI error/.test(err.message) ? err.message : "Something went wrong" });
   }
 });
