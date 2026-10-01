@@ -23,7 +23,10 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
+// html/js/css are re-checked on every load so a redeploy is picked up right away (no stale scripts)
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders: (res, filePath) => { if (/\.(html|js|css)$/i.test(filePath)) res.setHeader("Cache-Control", "no-cache"); },
+}));
 
 // Render's env-var box happily keeps stray whitespace, quotes, or a trailing
 // slash from a copy-paste, and any of them breaks Supabase ("Invalid API key",
@@ -177,7 +180,7 @@ const MATH_VISUALS_GUIDE =
   'MATH VISUALS: when a picture helps with math (graphs of equations or inequalities, area under a curve, number lines and solution sets, geometry figures, fractions), put ONE fenced code block with the language "mathviz" holding a single JSON object right where the picture belongs, and still explain in words. Never draw ASCII art. JSON only: double quotes, no comments, no trailing commas, include only the fields you need. ' +
   'Graph / geometry: {"type":"graph","title":"","xMin":-5,"xMax":5,"yMin":-5,"yMax":5,"functions":[{"expr":"x^2-4","label":"y = x^2 - 4","dashed":false}],"inequalities":[{"expr":"2x+1","op":">"}],"areas":[{"expr":"x^2","from":0,"to":2}],"parametric":[{"x":"cos(t)","y":"sin(t)","t":[0,6.283]}],"polar":[{"r":"1+cos(theta)"}],"points":[{"x":2,"y":0,"label":"(2, 0)","open":false}],"segments":[{"from":[0,0],"to":[3,4],"label":"5"}],"vectors":[{"from":[0,0],"to":[2,1]}],"polygons":[{"points":[[0,0],[4,0],[0,3]],"vertexLabels":["A","B","C"],"sideLabels":["4","5","3"]}],"circles":[{"center":[0,0],"r":5}],"angles":[{"vertex":[0,0],"from":[4,0],"to":[0,3],"label":"90\u00b0","right":true}],"texts":[{"x":1,"y":1,"text":"note"}],"vlines":[2],"hlines":[1]}. ' +
   'Inequality op is one of ">", ">=", "<", "<=" (dashed boundary for strict ones; use {"x":3,"op":">"} for a vertical boundary). Write every expression in plain text, never LaTeX or backslashes: use x (t or theta for curves), + - * / ^, implicit multiplication (2x), sin(x) cos(x) tan(x) sqrt(x) abs(x) ln(x) log(x) e^x, and pi. Examples: x^2 - 4, 1/(x-2), sin(2x)/x. Use "geometry" shapes (polygons, circles, angles, segments) with real coordinates for triangles, circles, angle diagrams and the like; leave xMin..yMax out to auto-fit. ' +
-  'Number line: {"type":"numberline","min":-5,"max":5,"step":1,"denominator":4,"points":[{"value":3,"label":"3","open":false}],"intervals":[{"from":-2,"to":3,"fromOpen":true,"toOpen":false}],"arcs":[{"from":0,"to":4,"label":"+4"}]} (leave from or to out for infinity; arcs show jumps for addition and subtraction; denominator puts fraction ticks). ' +
+  'Number line: {"type":"numberline","min":-5,"max":5,"step":1,"denominator":4,"points":[{"value":3,"label":"3","open":false}],"intervals":[{"from":-2,"to":3,"fromOpen":true,"toOpen":false}],"arcs":[{"from":0,"to":4,"label":"+4"}]} (leave from or to OUT for infinity, so x < 2 is {"to":2,"toOpen":true} and x >= 1 is {"from":1,"fromOpen":false}, never use the window edge as a value; arcs show jumps for addition and subtraction; denominator puts fraction ticks). ' +
   'Fractions: {"type":"fraction","items":[{"numerator":3,"denominator":4,"shape":"circle"},{"numerator":1,"denominator":2,"shape":"bar"}]}.';
 
 const SYSTEM_PROMPT = [
@@ -531,7 +534,19 @@ function validMathVisual(v) {
   if (!kind) return null;
   if (kind === "fraction" ? !(Array.isArray(v.items) && v.items.length) && v.numerator == null : !VISUAL_CONTENT_KEYS.some(k => Array.isArray(v[k]) && v[k].length)) return null;
   try { if (JSON.stringify(v).length > 12000) return null; } catch (_) { return null; }
-  return { ...v, type: kind };
+  const out = { ...v, type: kind };
+  if (kind === "numberline" && Array.isArray(out.intervals)) {
+    // "x < 2" drawn as from:-5 (the window edge) should run off to infinity with an arrow, not start with a dot
+    const lo = Number(out.min), hi = Number(out.max);
+    out.intervals = out.intervals.map(iv => {
+      if (!iv || typeof iv !== "object") return iv;
+      const c = { ...iv };
+      if (Number.isFinite(lo) && c.from != null && Number(c.from) <= lo) { delete c.from; delete c.fromOpen; }
+      if (Number.isFinite(hi) && c.to != null && Number(c.to) >= hi) { delete c.to; delete c.toOpen; }
+      return c;
+    });
+  }
+  return out;
 }
 // Runs the SAME renderer the page uses (public/js/mathviz.js) inside a sandbox, so a drawing is only
 // accepted when it really draws. If the AI wrote an expression the renderer can't read, we find out here
