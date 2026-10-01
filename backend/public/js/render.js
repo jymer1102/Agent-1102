@@ -313,6 +313,31 @@
   /* ---------------------------------------------------------- */
   const CHART_LANGS = ["chart", "chartjs", "chart.js", "chart-json"];
   const MATH_LANGS = ["mathviz", "mathgraph", "math-visual"];
+
+  // The drawing code lives in js/mathviz.js. If the page didn't load it (old index.html, file in the wrong
+  // folder, stale cache), load it now instead of showing the drawing data as a code block.
+  let mathvizLoading = null;
+  function ensureMathViz() {
+    if (window.Agent1102MathViz) return Promise.resolve(window.Agent1102MathViz);
+    if (!mathvizLoading) {
+      mathvizLoading = new Promise((resolve, reject) => {
+        const sc = document.createElement("script");
+        sc.src = new URL("js/mathviz.js?v=" + Date.now(), document.baseURI).href;
+        sc.onload = () => (window.Agent1102MathViz ? resolve(window.Agent1102MathViz) : reject(new Error("mathviz.js ran but did not define the drawer")));
+        sc.onerror = () => reject(new Error("js/mathviz.js could not be loaded"));
+        document.head.appendChild(sc);
+      });
+      mathvizLoading.catch(() => { mathvizLoading = null; });
+    }
+    return mathvizLoading;
+  }
+  function lazyMathBlock(text) {
+    const box = el("div", "study-block mathviz-block");
+    box.textContent = "Drawing...";
+    ensureMathViz().then(mv => { box.replaceWith(mv.build(text)); scrollChat(); })
+      .catch(err => { box.className = "study-block study-error"; box.textContent = "Couldn't draw this graph: " + err.message + ". Make sure mathviz.js is uploaded to backend/public/js/ on your server, then redeploy and refresh."; });
+    return box;
+  }
   const TYPE_MAP = {
     bar: "bar", column: "bar", line: "line",
     pie: "pie", doughnut: "doughnut", donut: "doughnut",
@@ -835,6 +860,8 @@
         pre.replaceWith(study.buildQuiz(text));
       } else if (study && lang.toLowerCase() === "flashcards") {
         pre.replaceWith(study.buildFlashcards(text));
+      } else if (!window.Agent1102MathViz && MATH_LANGS.includes(lang.toLowerCase())) {
+        pre.replaceWith(lazyMathBlock(text));
       } else if (window.Agent1102MathViz && (MATH_LANGS.includes(lang.toLowerCase()) ||
                  (["", "json", "graph", "plot", "geometry", "numberline", "math", "desmos"].includes(lang.toLowerCase()) && window.Agent1102MathViz.looksLikeSpec(text)))) {
         pre.replaceWith(window.Agent1102MathViz.build(text));
