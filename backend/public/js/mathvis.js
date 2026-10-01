@@ -582,7 +582,8 @@
     // intervals (solution sets) above the line
     ivs.forEach((iv, i) => {
       const color = colorOf(iv.color, i), y = ly - 18 - i * 0;
-      const noFrom = isNil(iv.from), noTo = isNil(iv.to);
+      // an end sitting on the window edge (x < 2 written as from:-5 on a -5..5 line) means "keeps going": draw an arrow
+      const noFrom = isNil(iv.from) || num(iv.from, min) <= min, noTo = isNil(iv.to) || num(iv.to, max) >= max;
       const a = noFrom ? L - 18 : sx(num(iv.from, min)), b = noTo ? W - R + 18 : sx(num(iv.to, max));
       g += `<line x1="${f2(a)}" x2="${f2(b)}" y1="${y}" y2="${y}" stroke="${color}" stroke-width="5" stroke-linecap="butt"/>`;
       if (noFrom) g += `<path d="M${f2(a - 2)},${y - 8} L${f2(a - 14)},${y} L${f2(a - 2)},${y + 8} z" fill="${color}"/>`;
