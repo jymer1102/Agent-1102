@@ -3,138 +3,38 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>trex.exe</title>
+    <title>T-Rex</title>
     <link rel="stylesheet" href="index.css">
     <script src="index.js"></script>
     <link rel="icon" type="image/png" href="./assets/default_100_percent/100-error-offline.png">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        html, body { width: 100%; height: 100%; overflow: hidden; }
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #f7f7f7; /* same as the game's own background */
+        }
+
+        /* index.js flips html/body to #202124 when night mode (body.inverted)
+           kicks in; this just smooths the change. */
+        html, body { transition: background-color 1s ease; }
 
         body {
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            padding-bottom: 40px;
-            position: relative;
-            /* Bliss-style wallpaper drawn in CSS (green hill + blue sky).
-               To use your original photo instead, replace this whole
-               background rule with: background-image: url('your-image.jpg'); */
-            background:
-                radial-gradient(ellipse 150% 55% at 28% 122%, #3f8f22 0%, #5fae2f 42%, #7cc243 47%, transparent 48%),
-                linear-gradient(180deg, #2a6bd0 0%, #5aa2ec 45%, #a9d4f7 72%, #dff0fd 100%);
-            background-size: cover;
-            background-position: center;
-        }
-
-        /* Real day/night cycle: index.js toggles body.classList 'inverted'
-           every 700px via Runner.config.INVERT_DISTANCE. We hook that same
-           class here, but scope the visual flip to the window only —
-           the wallpaper behind it is untouched. */
-        body.inverted .xp-window {
-            background-color: #202124;
-        }
-
-        body.inverted .title-bar,
-        body.inverted .status-bar,
-        body.inverted .taskbar {
-            filter: invert(1) hue-rotate(180deg);
-        }
-
-        body.inverted .game-wrapper {
-            background-color: #202124;
-        }
-
-        .xp-window {
-            position: relative;
-            z-index: 1;
-            width: 604px;
-            max-width: 96vw;
-            border-radius: 10px 10px 6px 6px;
-            overflow: hidden;
-            background-color: #ffffff;
-            transition: background-color 1s ease;
-            box-shadow:
-                0 0 0 1px rgba(255,255,255,0.55),
-                0 14px 52px rgba(0,0,0,0.55),
-                0 4px 12px rgba(0,0,0,0.35),
-                inset 0 1px 0 rgba(255,255,255,0.92),
-                inset 0 -1px 0 rgba(255,255,255,0.12);
-        }
-
-        .xp-window::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.95) 20%, #fff 50%, rgba(255,255,255,0.95) 80%, transparent 100%);
-            z-index: 10;
-            pointer-events: none;
-            border-radius: 10px 10px 0 0;
-        }
-
-        .title-bar {
-            background: linear-gradient(180deg, #5fa5e1 0%, #3e7cc4 38%, #2e68b4 62%, #3a86ce 100%);
-            padding: 5px 8px 5px 10px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(255,255,255,0.28);
-            user-select: none;
-        }
-
-        .title-bar-left { display: flex; align-items: center; gap: 7px; }
-        .title-icon { font-size: 14px; line-height: 1; }
-        .title-text {
-            font-size: 12px;
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.55);
-            font-family: 'Tahoma', 'Segoe UI', Arial, sans-serif;
-        }
-
-        .title-buttons { display: flex; gap: 2px; }
-
-        .win-btn {
-            width: 22px; height: 22px;
-            border-radius: 3px;
-            border: 1px solid rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 11px;
-            font-family: 'Tahoma', Arial, sans-serif;
-            color: white;
-            text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
-            cursor: pointer;
-            font-weight: bold;
-            line-height: 1;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.18);
-            transition: filter 0.1s;
-        }
-        .win-btn:hover { filter: brightness(1.18); }
-        .win-btn:active { filter: brightness(0.88); transform: scale(0.96); }
-        .win-btn-min, .win-btn-max { background: linear-gradient(180deg, #7db9f5 0%, #5290d7 50%, #3e7cc8 100%); }
-        .win-btn-close { background: linear-gradient(180deg, #e15541 0%, #b92a20 50%, #a21e16 100%); }
-
-        .game-wrapper {
-            background-color: #ffffff;
-            position: relative;
-            transition: background-color 1s ease;
         }
 
         #main-frame-error {
             position: relative;
-            z-index: 1;
-            padding-top: 16px !important;
+            width: 100%;
             max-width: 600px;
             margin: 0 auto;
         }
 
-        #main-content {
-            text-align: center;
-        }
+        #main-content { text-align: center; }
 
         .runner-container {
             position: relative !important;
@@ -142,222 +42,20 @@
             left: 50% !important;
             transform: translateX(-50%);
         }
-
-        .status-bar {
-            background: linear-gradient(180deg, #c3daf2 0%, #afcde8 100%);
-            padding: 4px 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-top: 1px solid rgba(255,255,255,0.65);
-        }
-
-        .status-left {
-            display: flex; align-items: center; gap: 8px;
-            font-family: 'Tahoma', Arial, sans-serif;
-            font-size: 11px; color: #2a2a2a;
-        }
-
-        .status-divider {
-            width: 1px; height: 14px;
-            background: rgba(0,0,0,0.2);
-            border-right: 1px solid rgba(255,255,255,0.7);
-        }
-
-        .status-right {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 11px; color: #2a2a2a;
-            font-weight: bold; letter-spacing: 0.5px;
-        }
-
-        .taskbar {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            height: 34px;
-            background: linear-gradient(180deg, #3e7cd2 0%, #2862b4 50%, #1c52a8 100%);
-            display: flex; align-items: center;
-            padding: 0 8px; gap: 6px;
-            border-top: 1px solid rgba(255,255,255,0.4);
-            z-index: 100;
-        }
-
-        .start-btn {
-            background: linear-gradient(180deg, #55ac55 0%, #349134 50%, #247e24 100%);
-            border: 1px solid rgba(255,255,255,0.4);
-            border-radius: 12px;
-            padding: 3px 14px 3px 9px;
-            display: flex; align-items: center; gap: 5px;
-            cursor: pointer;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.38), 0 1px 3px rgba(0,0,0,0.35);
-            user-select: none;
-        }
-        .start-btn:hover { filter: brightness(1.1); }
-
-        .start-label {
-            font-family: 'Tahoma', Arial, sans-serif;
-            font-size: 13px; font-weight: bold; font-style: italic;
-            color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-        }
-
-        .taskbar-pill {
-            background: linear-gradient(180deg, #5f9eeb 0%, #4484d7 100%);
-            border: 1px solid rgba(255,255,255,0.35);
-            border-radius: 3px; padding: 3px 12px;
-            display: flex; align-items: center; gap: 5px;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.28);
-        }
-
-        .taskbar-label {
-            font-family: 'Tahoma', Arial, sans-serif;
-            font-size: 11px; color: white;
-            text-shadow: 1px 1px 1px rgba(0,0,0,0.45);
-        }
-
-        .taskbar-spacer { flex: 1; }
-
-        .taskbar-clock {
-            font-family: 'Tahoma', Arial, sans-serif;
-            font-size: 11px; color: white;
-            text-shadow: 1px 1px 1px rgba(0,0,0,0.4);
-            padding: 3px 8px;
-            background: rgba(0,0,0,0.15);
-            border-radius: 2px;
-            border: 1px solid rgba(255,255,255,0.2);
-            cursor: default; user-select: none;
-        }
-
-        #sendingText {
-            font-family: 'Tahoma', Arial, sans-serif !important;
-            font-size: 11px !important; color: #444 !important;
-            padding: 4px 0 !important;
-        }
     </style>
 </head>
 <body id="t" class="offline">
 
-    <div class="xp-window" id="xp-window">
-
-        <div class="title-bar">
-            <div class="title-bar-left">
-                <span class="title-icon">🦖</span>
-                <span class="title-text">trex.exe</span>
-            </div>
-            <div class="title-buttons">
-                <div class="win-btn win-btn-min" title="Minimize" onclick="window.history.back()">_</div>
-                <div class="win-btn win-btn-max" title="Fullscreen" onclick="toggleFullscreen()">□</div>
-                <div class="win-btn win-btn-close" title="Close">✕</div>
-            </div>
+    <div id="main-frame-error" class="interstitial-wrapper">
+        <div id="main-content">
+            <div class="icon icon-offline" alt=""></div>
+            <button id="details-button" style="display:none;"></button>
         </div>
-
-        <div class="game-wrapper">
-            <div id="main-frame-error" class="interstitial-wrapper">
-                <div id="main-content">
-                    <div class="icon icon-offline" alt=""></div>
-                    <button id="details-button" style="display:none;"></button>
-                </div>
-                <div id="offline-resources">
-                    <img id="offline-resources-1x" src="assets/default_100_percent/100-offline-sprite.png">
-                    <img id="offline-resources-2x" src="assets/default_200_percent/200-offline-sprite.png">
-                    <!-- Sounds are loaded by index.js (loadSounds), so no inline audio is needed here. -->
-                </div>
-            </div>
-            <p id="sendingText" style="text-align: center; display:none;">Saving highscore...</p>
+        <div id="offline-resources">
+            <img id="offline-resources-1x" src="assets/default_100_percent/100-offline-sprite.png">
+            <img id="offline-resources-2x" src="assets/default_200_percent/200-offline-sprite.png">
         </div>
-
-        <div class="status-bar">
-            <div class="status-left">
-                <span>🦖</span>
-                <span id="status-msg">Press Space or ↑ to play</span>
-                <div class="status-divider"></div>
-                <span style="color:#666;">trex.exe</span>
-            </div>
-            <div class="status-right">HI&nbsp;<span id="hi-score-display">00000</span>&nbsp;&nbsp;<span id="score-display">00000</span></div>
-        </div>
-
     </div>
 
-    <div class="taskbar">
-        <div class="start-btn" onclick="startGameFromButton()">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <rect x="0"   y="0"   width="6.5" height="6.5" fill="#FF3333" rx="0.5"/>
-                <rect x="7.5" y="0"   width="6.5" height="6.5" fill="#33CC33" rx="0.5"/>
-                <rect x="0"   y="7.5" width="6.5" height="6.5" fill="#3366FF" rx="0.5"/>
-                <rect x="7.5" y="7.5" width="6.5" height="6.5" fill="#FFDD00" rx="0.5"/>
-            </svg>
-            <span class="start-label">start</span>
-        </div>
-        <div class="taskbar-pill">
-            <span style="font-size:12px;">🦖</span>
-            <span class="taskbar-label">trex.exe</span>
-        </div>
-        <div class="taskbar-spacer"></div>
-        <div class="taskbar-clock" id="taskbar-clock">12:00 PM</div>
-    </div>
-
-    <script>
-        function updateClock() {
-            const now = new Date();
-            let h = now.getHours();
-            const m = now.getMinutes().toString().padStart(2, '0');
-            const ampm = h >= 12 ? 'PM' : 'AM';
-            h = h % 12 || 12;
-            document.getElementById('taskbar-clock').textContent = h + ':' + m + ' ' + ampm;
-        }
-        updateClock();
-        setInterval(updateClock, 15000);
-
-        function startGameFromButton() {
-            // Dispatch a real keydown/keyup for spacebar (keyCode 32),
-            // which Runner.prototype.onKeyDown already listens for to
-            // start the game and make the T-Rex jump — same path a
-            // real spacebar press takes, untouched in index.js.
-            var down = new KeyboardEvent('keydown', { keyCode: 32, which: 32, bubbles: true });
-            var up = new KeyboardEvent('keyup', { keyCode: 32, which: 32, bubbles: true });
-            Object.defineProperty(down, 'keyCode', { get: function () { return 32; } });
-            Object.defineProperty(up, 'keyCode', { get: function () { return 32; } });
-            document.dispatchEvent(down);
-            setTimeout(function () {
-                document.dispatchEvent(up);
-            }, 50);
-        }
-
-        function toggleFullscreen() {
-            const el = document.documentElement;
-            if (!document.fullscreenElement) {
-                (el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen).call(el);
-            } else {
-                (document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen).call(document);
-            }
-        }
-
-        document.querySelector('.win-btn-close').addEventListener('click', function() {
-            window.open('', '_self').close();
-        });
-
-        window.addEventListener('keydown', function(e) {
-            if (e.code === 'Space' || e.code === 'ArrowUp') {
-                document.getElementById('status-msg').textContent = 'Running...';
-            }
-        });
-
-        (function pollScore() {
-            const hi  = document.getElementById('hi-score-display');
-            const cur = document.getElementById('score-display');
-            function pad(n) { return String(Math.floor(n || 0)).padStart(5, '0'); }
-            setInterval(function() {
-                try {
-                    if (window.Runner && Runner.instance_) {
-                        const r = Runner.instance_;
-                        const score = r.distanceMeter && r.distanceMeter.getActualDistance
-                            ? r.distanceMeter.getActualDistance(r.distanceRan)
-                            : (r.distanceRan ? Math.ceil(r.distanceRan * 0.025) : 0);
-                        const hiScore = r.highestScore || 0;
-                        cur.textContent = pad(score);
-                        if (hiScore > 0) hi.textContent = pad(hiScore);
-                    }
-                } catch(e) {}
-            }, 200);
-        })();
-    </script>
 </body>
 </html>
