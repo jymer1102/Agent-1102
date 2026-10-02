@@ -661,12 +661,15 @@ app.post("/title", async (req, res) => {
       },
       body: JSON.stringify({
         model: TEXT_MODEL,
-        max_tokens: 20,
+        // gpt-oss is a reasoning model: a tiny max_tokens gets eaten by reasoning and
+        // returns an empty title, so leave headroom and keep reasoning low.
+        max_tokens: 400,
+        reasoning_effort: "low",
         temperature: 0.3,
         messages: [
           {
             role: "system",
-            content: "You write short titles for chat conversations. Read the conversation and reply with ONLY a concise title (3-6 words) summarizing its overall topic so far. Do not use quotes, a trailing period, or a prefix like \"Title:\" \u2014 reply with just the title text itself.",
+            content: "You write the title for a chat conversation: a one-line AI overview of what the whole chat is about. Read the whole conversation (what the user wanted and what was covered or answered) and reply with ONLY a specific, informative overview of 5-10 words, in sentence case (for example: \"Debugging a Node.js login bug and fixing token expiry\"). Cover the overall arc, not just the first message. Do not use quotes, a trailing period, or a prefix like \"Title:\" \u2014 reply with just the title text itself.",
           },
           { role: "user", content: transcript },
         ],
@@ -674,8 +677,11 @@ app.post("/title", async (req, res) => {
     });
     const data = await response.json();
     let title = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    title = String(title || "").replace(/^["'\s]+|["'\s.]+$/g, "").replace(/\s+/g, " ").slice(0, 60);
-    if (!title) return res.status(500).json({ error: "No title generated" });
+    title = String(title || "").replace(/^["'\s]+|["'\s.]+$/g, "").replace(/\s+/g, " ").slice(0, 90);
+    if (!title) {
+      console.warn("Title generation returned empty content:", JSON.stringify(data).slice(0, 300));
+      return res.status(500).json({ error: "No title generated" });
+    }
     res.json({ title });
   } catch (err) {
     console.error(err);
