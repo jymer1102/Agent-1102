@@ -6,7 +6,7 @@
   // ---------- 1. Cursor glow inside cards ----------
   // Cards are created dynamically (code blocks, charts, quizzes...), so one
   // delegated listener on the document handles all of them.
-  const CARD_SEL = ".auth-box, .modal-box, .code-block, .chart-block, .study-block, .link-card, .user .msg";
+  const CARD_SEL = ".auth-box, .modal-box, .code-block, .chart-block, .study-block, .link-card, .user .msg, header, #input-area, #sidebar";
   let cardRaf = 0, lastEvt = null;
   document.addEventListener("pointermove", (e) => {
     lastEvt = e;
