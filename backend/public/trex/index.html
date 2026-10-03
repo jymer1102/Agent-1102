@@ -23,24 +23,37 @@
 
         body {
             display: flex;
-            align-items: center;
-            justify-content: center;
+            align-items: center;      /* vertical centre */
+            justify-content: center;  /* horizontal centre */
         }
 
+        /* index.css pads the wrapper by 100px for Chrome's offline page; the
+           game should sit dead centre instead. */
+        .offline .interstitial-wrapper,
         #main-frame-error {
             position: relative;
             width: 100%;
             max-width: 600px;
             margin: 0 auto;
+            padding: 0 !important;
         }
 
-        #main-content { text-align: center; }
+        /* the static dino icon is only a placeholder; don't let it take space */
+        .icon-offline { display: none !important; }
+        #main-content { display: none; }
 
+        /* Full width, no transform: a transform would trap the canvas under the
+           full-screen touch layer on phones, so taps never reached it. */
+        .offline .runner-container,
         .runner-container {
             position: relative !important;
             top: 0 !important;
-            left: 50% !important;
-            transform: translateX(-50%);
+            left: 0 !important;
+            width: 100% !important;
+            max-width: 600px;
+            height: 150px;
+            margin: 0 auto;
+            z-index: 2;
         }
     </style>
 </head>
