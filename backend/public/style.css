@@ -1,5 +1,20 @@
-:root { --bg-blur:10px; /* background image blur */ --bg:#0f0f0f; --surface:#1a1a1a; --surface2:#2a2a2a; --border:#333; --text:#f0f0f0; --text-muted:#888; --accent:#2f6feb; --ai-bg:#1e1e1e; }
-.light { --bg:#ffffff; --surface:#ffffff; --surface2:#ececec; --border:#ddd; --text:#111; --text-muted:#666; --accent:#2f6feb; --ai-bg:#e8e8e8; }
+:root {
+  --bg-blur:10px; /* background image blur */
+  --bg:#0a0a0c; --raised:#111116; --surface:#131318; --surface2:#17171d;
+  --border:rgba(255,255,255,0.07); --border-hover:rgba(30,86,224,0.85);
+  --text:#f7f7f7; --text-muted:#a3a3ac;
+  --accent:#1E56E0; --accent-bright:#4FA9FF; --accent-glow:rgba(30,86,224,0.35);
+  --ai-bg:#17171d;
+  --font-display:'Space Grotesk','Inter',system-ui,sans-serif;
+  --ease:cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+/* Light theme (body and html both get .light) */
+.light {
+  --bg:#f4f5f8; --raised:#ffffff; --surface:#ffffff; --surface2:#edeff3;
+  --border:rgba(10,10,12,0.09); --border-hover:rgba(30,86,224,0.85);
+  --text:#15151a; --text-muted:#46464f;
+  --accent-bright:#145dc7; --ai-bg:#edeff3;
+}
 * { box-sizing:border-box; margin:0; padding:0; }
 body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var(--text); display:flex; flex-direction:column; height:100vh; transition:background 0.2s,color 0.2s; }
 #auth-screen { flex:1; display:flex; align-items:center; justify-content:center; padding:1rem; }
@@ -8,7 +23,7 @@ body { font-family:'Inter',system-ui,sans-serif; background:var(--bg); color:var
 .auth-box p { font-size:0.85rem; color:var(--text-muted); text-align:center; }
 .auth-box input { padding:0.75rem; border-radius:10px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:1rem; font-family:'Inter',sans-serif; width:100%; }
 .auth-box button.primary { padding:0.75rem; border-radius:10px; border:none; background:var(--accent); color:white; font-size:1rem; cursor:pointer; width:100%; font-family:'Inter',sans-serif; }
-.auth-box button.primary:hover { opacity:0.9; }
+
 .auth-toggle { background:none; border:none; color:var(--accent); cursor:pointer; font-size:0.9rem; text-align:center; font-family:'Inter',sans-serif; }
 .auth-error { font-size:0.85rem; text-align:center; }
 #app { display:none; flex-direction:column; height:100vh; }
@@ -31,7 +46,7 @@ header { padding:0.75rem 1rem; background:var(--surface); display:flex; align-it
   flex-shrink:0;
   overflow:hidden;
 }
-.icon-btn:hover { opacity:0.8; }
+
 .icon-btn img {
   width:20px;
   height:20px;
@@ -58,13 +73,13 @@ textarea { flex:1; padding:0.75rem; border-radius:12px; border:1px solid var(--b
 button { padding:0 1.25rem; border-radius:12px; border:none; background:var(--accent); color:white; font-size:1rem; cursor:pointer; }
 button:disabled { opacity:0.5; cursor:default; }
 .tool-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); font-size:1.2rem; padding:0 0.9rem; border-radius:12px; cursor:pointer; }
-.tool-btn:hover { opacity:0.8; }
+
 .tool-btn.recording { background:#e03; color:white; border-color:#e03; }
 #sidebar { position:fixed; top:0; left:-280px; width:280px; height:100%; background:var(--surface); border-right:1px solid var(--border); z-index:100; transition:left 0.25s; display:flex; flex-direction:column; }
 #sidebar.open { left:0; }
 #sidebar-header { padding:1rem; font-weight:600; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
 #clear-all-btn { background:#c0392b; border:none; color:white; border-radius:8px; padding:0.3rem 0.6rem; cursor:pointer; font-size:0.8rem; white-space:nowrap; }
-#clear-all-btn:hover { opacity:0.8; }
+
 #sidebar-list { flex:1; overflow-y:auto; padding:0.5rem; }
 .history-item { display:flex; align-items:center; justify-content:space-between; gap:0.5rem; }
 .history-item-title { flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.35; word-break:break-word; cursor:pointer; padding:0.6rem 0.4rem; border-radius:8px; font-size:0.9rem; color:var(--text); }
@@ -99,70 +114,124 @@ button:disabled { opacity:0.5; cursor:default; }
 .msg-content-body th { background:rgba(255,255,255,0.05); }
 
 /* ============================================================
-   LIQUID GLASS
+   SURFACES (solid, no glass) — jymer1102 site style
    ============================================================ */
-body { background:var(--bg)!important; padding:0; height:100vh; height:100dvh; }
-/* Full-screen layout: no floating card. The header and footer bars run edge to edge.
-   (No backdrop-filter here on purpose: it would trap the fixed sidebar/overlay inside #app.) */
-#app, #auth-screen {
-  height:100vh!important; height:100dvh!important; border-radius:0!important;
-  background:transparent!important; border:none!important; box-shadow:none!important;
-  backdrop-filter:none!important; -webkit-backdrop-filter:none!important;
-  overflow:hidden;
+body {
+  background-color:var(--bg)!important;
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(30,86,224,0.08), transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(30,86,224,0.05), transparent 35%);
+  background-attachment:fixed;
+  padding:0; height:100vh; height:100dvh;
 }
-header, #input-area, #sidebar, .auth-box, .modal-box {
-  background:rgba(255,255,255,0.05)!important;
-  backdrop-filter:blur(30px) saturate(140%)!important;
-  -webkit-backdrop-filter:blur(30px) saturate(140%)!important;
-  border:none!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.18)!important;
+#app, #auth-screen { height:100vh; height:100dvh; background:transparent; overflow:hidden; }
+header, #input-area, #sidebar { background:var(--surface); }
+header { border-bottom:1px solid var(--border); }
+#input-area { border-top:1px solid var(--border); }
+#sidebar { border-right:1px solid var(--border); }
+.auth-box, .modal-box {
+  background:linear-gradient(160deg, var(--surface), var(--surface2));
+  border:1px solid var(--border); border-radius:18px;
+  box-shadow:0 16px 40px rgba(0,0,0,0.3);
 }
-header { border-radius:0!important; border-bottom:1px solid rgba(255,255,255,0.1)!important; box-shadow:none!important; }
-#input-area { border-radius:0!important; border-top:1px solid rgba(255,255,255,0.1)!important; box-shadow:none!important; }
-#sidebar { border-radius:0!important; border-right:1px solid rgba(255,255,255,0.1)!important; box-shadow:none!important; }
-.msg {
-  background:rgba(255,255,255,0.09)!important;
-  backdrop-filter:blur(22px) saturate(160%)!important;
-  -webkit-backdrop-filter:blur(22px) saturate(160%)!important;
-  border:1px solid rgba(255,255,255,0.16)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.22), 0 8px 20px rgba(0,0,0,0.25)!important;
-  color:#ffffff!important;
+.light .auth-box, .light .modal-box { box-shadow:0 16px 40px rgba(10,10,12,0.1); }
+.user .msg {
+  background:linear-gradient(160deg, var(--surface), var(--surface2));
+  border:1px solid var(--border); color:var(--text);
 }
-button, .icon-btn, .tool-btn, .msg-action-btn, textarea, input, .history-item-title {
-  background:rgba(255,255,255,0.08)!important;
-  backdrop-filter:blur(20px) saturate(150%)!important;
-  -webkit-backdrop-filter:blur(20px) saturate(150%)!important;
-  border:1px solid rgba(255,255,255,0.16)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.28), 0 4px 14px rgba(0,0,0,0.22)!important;
-  color:#ffffff!important; border-radius:14px!important;
-  transition:background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease!important;
+.icon-btn, .tool-btn { background:var(--surface2); border:1px solid var(--border); color:var(--text); }
+.history-item-title:hover { background:var(--surface2); }
+.glass-btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:0.4rem;
+  padding:0.55rem 1rem; border-radius:12px; font-size:0.9rem; cursor:pointer;
+  background:var(--surface2); border:1px solid var(--border); color:var(--text);
 }
-.icon-btn { border-radius:10px!important; width:34px!important; height:34px!important; padding:0!important; }
-button:hover, .icon-btn:hover, .tool-btn:hover, .msg-action-btn:hover, .history-item-title:hover {
-  background:rgba(255,255,255,0.14)!important; transform:translateY(-1px);
-}
-::placeholder { color:rgba(255,255,255,0.5)!important; }
-:root { --surface:transparent!important; --surface2:transparent!important; --border:transparent!important; }
+.agent1102-glass-panel { background:transparent; }
+::placeholder { color:var(--text-muted); opacity:0.8; }
+.light .user .msg { box-shadow:none; }
 
-/* Light Mode Structure */
-.light #app, .light #auth-screen {
-  background:transparent!important; border:none!important;
+/* ============================================================
+   TEXT BOXES: blue glowing border on hover + while typing
+   ============================================================ */
+textarea, input:not([type="file"]):not([type="checkbox"]):not([type="radio"]), .modal-input {
+  background:var(--raised); color:var(--text);
+  border:1px solid var(--border); border-radius:12px; outline:none;
+  caret-color:var(--accent-bright);
+  transition:border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
 }
-.light header, .light #input-area, .light #sidebar, .light .auth-box, .light .modal-box {
-  background:rgba(255,255,255,0.4)!important;
+textarea:hover, input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):hover, .modal-input:hover {
+  border-color:var(--border-hover); box-shadow:0 0 18px var(--accent-glow);
 }
-.light .msg { background:rgba(255,255,255,0.55)!important; color:#111111!important; }
-.light .user .msg { background:#e8e8e8!important; border:1px solid rgba(0,0,0,0.06)!important; box-shadow:none!important; }
-.light button, .light .icon-btn, .light .tool-btn, .light .msg-action-btn, .light textarea, .light input, .light .history-item-title {
-  background:rgba(255,255,255,0.5)!important; color:#111111!important; border:1px solid rgba(0,0,0,0.08)!important;
+textarea:focus, input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):focus, .modal-input:focus {
+  border-color:var(--accent-bright); box-shadow:0 0 0 3px var(--accent-glow), 0 0 24px var(--accent-glow);
 }
-.light ::placeholder { color:rgba(0,0,0,0.45)!important; }
+
+/* ============================================================
+   BUTTONS: blue glowing border on hover
+   ============================================================ */
+button, .glass-btn, .icon-btn, .tool-btn {
+  transition:border-color 0.25s var(--ease), box-shadow 0.25s var(--ease), color 0.25s var(--ease), background 0.25s var(--ease), filter 0.25s var(--ease);
+}
+button:not(:disabled):not(.auth-toggle):not(.flashcard):not(.cmd-item):hover, .glass-btn:hover {
+  border-color:var(--border-hover);
+  box-shadow:0 0 0 1px var(--border-hover), 0 0 22px var(--accent-glow);
+}
+/* filled blue buttons need a brighter ring to show against their own colour */
+#send:not(:disabled):hover, .auth-box button.primary:not(:disabled):hover, #profile-save:hover, .study-btn.primary:hover {
+  box-shadow:0 0 0 1px var(--accent-bright), 0 0 22px var(--accent-glow);
+}
+.icon-btn:hover:not(:disabled), .tool-btn:hover:not(:disabled) { color:var(--accent-bright); }
+.light #send, .light .auth-box button.primary { color:#fff; }
+
+/* ============================================================
+   CARDS: glow that follows the cursor (set by js/glow.js)
+   ============================================================ */
+.auth-box, .modal-box, .code-block, .chart-block, .study-block, .link-card, .user .msg {
+  position:relative; isolation:isolate;
+  transition:border-color 0.35s var(--ease), box-shadow 0.35s var(--ease);
+}
+.auth-box::before, .modal-box::before, .code-block::before, .chart-block::before,
+.study-block::before, .link-card::before, .user .msg::before {
+  content:''; position:absolute; inset:0; border-radius:inherit; z-index:-1; pointer-events:none;
+  background:radial-gradient(500px circle at var(--mx,50%) var(--my,50%), var(--accent-glow), transparent 60%);
+  opacity:0; transition:opacity 0.35s var(--ease);
+}
+.auth-box:hover::before, .modal-box:hover::before, .code-block:hover::before, .chart-block:hover::before,
+.study-block:hover::before, .link-card:hover::before, .user .msg:hover::before,
+.auth-box:focus-within::before, .modal-box:focus-within::before { opacity:1; }
+.auth-box:hover, .modal-box:hover, .code-block:hover, .chart-block:hover, .study-block:hover,
+.link-card:hover, .user .msg:hover, .auth-box:focus-within, .modal-box:focus-within {
+  border-color:var(--border-hover); box-shadow:0 0 25px rgba(30,86,224,0.35);
+}
+.code-block:hover { border-top-color:var(--lang-color, var(--border-hover)); }
+
+/* ============================================================
+   CARET GLOW: soft blue halo that follows the typing caret (js/glow.js)
+   ============================================================ */
+#caret-glow {
+  position:fixed; left:0; top:0; width:2px; height:20px; border-radius:2px;
+  pointer-events:none; z-index:10000; opacity:0; will-change:transform;
+  box-shadow:0 0 6px 1px var(--accent-bright), 0 0 14px 3px var(--accent-glow), 0 0 28px 6px var(--accent-glow);
+}
+#caret-glow.on { opacity:1; animation:caretGlowPulse 1.1s ease-in-out infinite; }
+@keyframes caretGlowPulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(0.55); } }
+
+/* ============================================================
+   TITLE: white fading to blue (dark) / near-black fading to blue (light)
+   ============================================================ */
+#header-title, .auth-box h1 {
+  font-family:var(--font-display); font-weight:700; letter-spacing:-0.02em;
+  background:linear-gradient(120deg, #ffffff 0%, #ffffff 45%, var(--accent-bright) 100%);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent;
+}
+.light #header-title, .light .auth-box h1 {
+  background:linear-gradient(120deg, #0a0a0c 0%, #0a0a0c 45%, var(--accent-bright) 100%);
+  -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+}
 
 /* Custom Button Highlighting */
-#clear-all-btn, #clear-all-btn i, #clear-all-btn span,
-#clear-btn, #clear-btn i, #clear-btn span,
-#profile-delete, #profile-delete i, #profile-delete span,
-#profile-close, #profile-close i, #profile-close span { color:#ff4d4f!important; }
+#clear-btn, #clear-btn i, #clear-btn span { color:#ff4d4f!important; }
+#clear-all-btn, #profile-delete { color:#fff!important; }
 .msg-action-btn.copied, .msg-action-btn.copied i, .toast-success, .toast-success i { color:#2ecc71!important; }
 
 #profile-modal .modal-box { align-items:center; text-align:center; }
@@ -331,10 +400,6 @@ button:hover, .icon-btn:hover, .tool-btn:hover, .msg-action-btn:hover, .history-
 /* ============================================================
    Full-width header + footer bars (light-mode dividers, phone safe areas)
    ============================================================ */
-.light header, .light #input-area { background:rgba(0,0,0,0.03)!important; }
-.light header { border-bottom:1px solid rgba(0,0,0,0.1)!important; }
-.light #input-area { border-top:1px solid rgba(0,0,0,0.1)!important; }
-.light #sidebar { border-right:1px solid rgba(0,0,0,0.1)!important; }
 
 /* Keep bars clear of phone notches / home indicator (needs viewport-fit=cover in index.html) */
 header { padding:max(0.75rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.75rem max(1rem, env(safe-area-inset-left)); }
@@ -495,3 +560,9 @@ header .header-btns { grid-area:right; justify-self:end; flex-wrap:wrap; justify
 .mv-inline svg { max-height:260px; margin:0 auto; }
 .flashcard-face .mv-inline svg { max-height:150px; }
 .flashcard.has-visual { height:330px; }
+
+/* Small buttons (code boxes, attachments) also get the blue hover glow; their base rules use !important */
+.code-btn:hover, .light .code-btn:hover {
+  border-color:var(--border-hover)!important;
+  box-shadow:0 0 0 1px var(--border-hover), 0 0 16px var(--accent-glow)!important;
+}
