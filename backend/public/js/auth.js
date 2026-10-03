@@ -31,6 +31,16 @@
     authError.textContent = "";
   });
 
+  // Pressing Enter in any sign in / sign up field submits the form
+  [authName, authPhone, authEmail, authPassword].forEach(input => {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.isComposing && !authSubmit.disabled) {
+        e.preventDefault();
+        authSubmit.click();
+      }
+    });
+  });
+
   authSubmit.addEventListener("click", async () => {
     const email = authEmail.value.trim();
     const password = authPassword.value.trim();
