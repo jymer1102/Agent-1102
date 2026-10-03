@@ -205,6 +205,21 @@ button:not(:disabled):not(.auth-toggle):not(.flashcard):not(.cmd-item):hover, .g
 }
 .code-block:hover { border-top-color:var(--lang-color, var(--border-hover)); }
 
+/* Header, footer bar and sidebar get the same cursor-following glow as the cards */
+header { position:relative; isolation:isolate; z-index:5; }
+#input-area { isolation:isolate; }
+header, #input-area, #sidebar { transition:border-color 0.35s var(--ease), box-shadow 0.35s var(--ease); }
+header::before, #input-area::before, #sidebar::before {
+  content:''; position:absolute; inset:0; z-index:-1; pointer-events:none;
+  background:radial-gradient(500px circle at var(--mx,50%) var(--my,50%), var(--accent-glow), transparent 60%);
+  opacity:0; transition:opacity 0.35s var(--ease);
+}
+header:hover::before, #input-area:hover::before, #sidebar:hover::before { opacity:1; }
+header:hover, #input-area:hover, #sidebar:hover { border-color:var(--border-hover); box-shadow:0 0 25px rgba(30,86,224,0.35); }
+
+/* Sidebar title sits a little lower (and clears phone notches) */
+#sidebar-header { padding:calc(1.6rem + env(safe-area-inset-top, 0px)) 1rem 1rem; }
+
 /* ============================================================
    CARET GLOW: soft blue halo that follows the typing caret (js/glow.js)
    ============================================================ */
