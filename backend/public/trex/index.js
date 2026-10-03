@@ -685,7 +685,9 @@
                 }
 
                 if (this.crashed && e.type == Runner.events.TOUCHSTART &&
-                    e.currentTarget == this.containerEl) {
+                    (e.currentTarget == this.containerEl ||
+                        e.currentTarget == this.touchController) &&
+                    getTimeStamp() - this.time >= this.config.GAMEOVER_CLEAR_TIME) {
                     this.restart();
                 }
             }
@@ -2091,33 +2093,32 @@
 
             this.highScore = ['10', '11', ''].concat(highScoreStr.split(''));
 
-            // --- NOVA AI HIGH SCORE SYNC ---
-            const token = localStorage.getItem("nova_token");
-            
-            if (token) {
-                // Make sure to use your actual live URL if testing on the live site
-                const BACKEND_URL = "https://nova-ai-mk9x.onrender.com"; 
+            // --- AGENT 1102 HIGH SCORE SYNC ---
+            // Saves to the trex_highscores table via the backend (it only
+            // overwrites when the score beats the saved one).
+            const token = localStorage.getItem("agent1102_token");
 
-           fetch(`${BACKEND_URL}/trex-score`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ score: distance, token: token })
-    })
+            if (token) {
+                const BACKEND_URL = "https://agent-1102.onrender.com";
+
+                fetch(`${BACKEND_URL}/trex-score`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ score: distance, token: token }),
+                    keepalive: true
+                })
                     .then(response => {
-                        // THIS IS THE NEW PART: Check if the server actually said "OK"
                         if (!response.ok) {
                             throw new Error(`Server returned a ${response.status} error.`);
                         }
                         return response.json();
                     })
-                    .then(data => console.log("Nova AI Sync:", data.message))
+                    .then(data => console.log("Agent 1102 Sync:", data.message))
                     .catch(err => console.error("Score sync failed:", err));
-                } else {
-                    console.log("User not logged into Nova AI, score not saved.");
-                }
-            },
+            } else {
+                console.log("User not logged into Agent 1102, score not saved.");
+            }
+        },
 
             /**
              * Reset the distance meter back to '00000'.
@@ -2739,10 +2740,10 @@ document.addEventListener('DOMContentLoaded', onDocumentLoad);
 
 
 // ==========================================
-// NOVA SYNC: DYNAMIC DAY/NIGHT CYCLE
+// AGENT 1102 SYNC: DYNAMIC DAY/NIGHT CYCLE
 // ==========================================
 (function enableNightMode() {
-    console.log("Nova Sync: Day/Night Cycle Engine Loaded.");
+    console.log("Agent 1102 Sync: Day/Night Cycle Engine Loaded.");
 
     setInterval(function() {
         var isDark = document.body.classList.contains('inverted');
