@@ -38,6 +38,21 @@
             padding: 0 !important;
         }
 
+        /* index.js adds a full-screen "touch controller" layer on phones, and
+           index.css gives it a 10% white tint. That tint is what made the game
+           area lighter than the page in dark mode. Make it invisible, and pin
+           it to the screen so it never lands on a random patch of the page. */
+        .offline .controller,
+        .controller {
+            background: transparent !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            z-index: 1;
+        }
+
         /* the static dino icon is only a placeholder; don't let it take space */
         .icon-offline { display: none !important; }
         #main-content { display: none; }
