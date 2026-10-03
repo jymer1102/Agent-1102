@@ -11,6 +11,7 @@
     { name: "quiz",       args: "[number] <topic>",     desc: "Quiz yourself on a topic, your notes, a photo of homework, or a link", icon: "fa-clipboard-question", group: "Study", aliases: ["test"] },
     { name: "flashcards", args: "[number] <topic>",     desc: "Flashcards from a topic, your notes, a photo, or a file",         icon: "fa-clone",            group: "Study", aliases: ["flashcard", "cards"] },
     { name: "graph",      args: "<function, shape or number line>", desc: "Draw a math graph, number line, geometry diagram or fractions", icon: "fa-chart-line", group: "Create", aliases: ["plot", "numberline"] },
+    { name: "build",      args: "<what to build>",       desc: "Design a Minecraft build you can view in 3D, inside and layer by layer", icon: "fa-cube", group: "Create", aliases: ["schematic", "minecraft"] },
     { name: "image",      args: "<description>",        desc: "Generate an image",                          icon: "fa-image",            group: "Create", aliases: ["imagine", "img", "draw"] },
     { name: "edit",       args: "<change>",             desc: "Edit an attached image, or the last one I made", icon: "fa-wand-magic-sparkles", group: "Create" },
   ];
