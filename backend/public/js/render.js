@@ -313,6 +313,7 @@
   /* ---------------------------------------------------------- */
   const CHART_LANGS = ["chart", "chartjs", "chart.js", "chart-json"];
   const MATH_LANGS = ["mathviz", "mathgraph", "math-visual"];
+  const BUILD_LANGS = ["build", "schematic", "minecraft", "minecraft-build", "structure"];
 
   // The drawing code lives in js/mathviz.js. If the page didn't load it (old index.html, file in the wrong
   // folder, stale cache), load it now instead of showing the drawing data as a code block.
@@ -865,6 +866,9 @@
       } else if (window.Agent1102MathViz && (MATH_LANGS.includes(lang.toLowerCase()) ||
                  (["", "json", "graph", "plot", "geometry", "numberline", "math", "desmos"].includes(lang.toLowerCase()) && window.Agent1102MathViz.looksLikeSpec(text)))) {
         pre.replaceWith(window.Agent1102MathViz.build(text));
+      } else if (window.Agent1102Build && (BUILD_LANGS.includes(lang.toLowerCase()) ||
+                 (["", "json"].includes(lang.toLowerCase()) && window.Agent1102Build.looksLikeBuild(text)))) {
+        pre.replaceWith(window.Agent1102Build.build(text));
       } else if (CHART_LANGS.includes(lang.toLowerCase())) {
         const block = buildChartBlock(text);
         if (block._entry) pending.push(block._entry);
@@ -960,6 +964,7 @@
         .replace(/```quiz[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.quizToText(body) || whole)
         .replace(/```flashcards[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.cardsToText(body) || whole);
     }
+    md = String(md).replace(/```(?:build|schematic|minecraft|minecraft-build|structure)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => (window.Agent1102Build ? window.Agent1102Build.toText(body) : "[Minecraft build]"));
     md = String(md).replace(/```(?:mathviz|mathgraph|math-visual)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => (window.Agent1102MathViz ? window.Agent1102MathViz.toText(body) : "[Math visual]"));
     return String(md).replace(/```(?:chart|chartjs|chart\.js|chart-json)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => {
       try {
@@ -1180,7 +1185,7 @@
       return m ? ` ${mathToSpeech(m.tex)} ` : "";
     });
     // Code (and our chart JSON) is unreadable aloud; drop fenced blocks entirely.
-    text = text.replace(/```(?:quiz|flashcards|mathviz|mathgraph|math-visual)[^\n]*\n[\s\S]*?```/gi, " ");
+    text = text.replace(/```(?:quiz|flashcards|mathviz|mathgraph|math-visual|build|schematic|minecraft|minecraft-build|structure)[^\n]*\n[\s\S]*?```/gi, " ");
     text = text.replace(/```[\s\S]*?```/g, " Code omitted. ");
 
     if (typeof marked === "undefined") return text.replace(/\s+/g, " ").trim();
