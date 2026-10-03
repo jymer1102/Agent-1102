@@ -29,7 +29,7 @@
   <meta name="twitter:image:alt" content="Agent 1102 logo" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.3.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
  
   <!-- Markdown parser (pinned so a future major release can't change how replies render),
@@ -43,7 +43,7 @@
   <!-- mhchem extension: lets the AI write chemical equations with \ce{...} inside the same math delimiters -->
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/mhchem.min.js"></script>
 
-  <link rel="stylesheet" href="style.css?v=20260930a" />
+  <link rel="stylesheet" href="style.css?v=20261003a" />
 </head>
 
 <body>
@@ -56,7 +56,7 @@
     <p id="auth-subtitle">Sign in to your account</p>
     <input type="text" id="auth-name" placeholder="Your name" style="display:none" />
     <input type="tel" id="auth-phone" placeholder="Phone number (optional)" style="display:none" />
-    <input type="email" id="auth-email" placeholder="Email" />
+    <input type="text" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" id="auth-email" placeholder="Email" />
     <input type="password" id="auth-password" placeholder="Password" />
     <p class="auth-error" id="auth-error"></p>
     <button class="primary" id="auth-submit">Sign In</button>
@@ -126,7 +126,7 @@
       <input type="file" id="avatar-upload" accept="image/jpeg, image/png, image/webp" style="display:none;" />
     </div>
     <input type="text" id="profile-name" class="modal-input" placeholder="New name" />
-    <input type="email" id="profile-email" class="modal-input" placeholder="New email" />
+    <input type="text" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" id="profile-email" class="modal-input" placeholder="New email" />
     <input type="password" id="profile-password" class="modal-input" placeholder="New password" />
     <p id="profile-msg" style="font-size:0.85rem;text-align:center;color:var(--text-muted)"></p>
     <div style="display:flex;gap:0.5rem">
@@ -155,5 +155,6 @@
 <script src="js/ui.js?v=20260930a"></script>
 <script src="js/chat.js?v=20260930a"></script>
 <script src="js/easter-eggs.js?v=20260930a"></script>
+<script src="js/glow.js?v=20261003a"></script>
 </body>
 </html>
