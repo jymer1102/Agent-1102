@@ -630,3 +630,5 @@ header .header-btns { grid-area:right; justify-self:end; flex-wrap:wrap; justify
 .bv-mat-count { color:var(--text-muted); font-size:0.78rem; white-space:nowrap; }
 .bv-note { margin-top:0.5rem; font-size:0.78rem; color:var(--text-muted); }
 @media (max-width:600px) { .bv-stage { height:340px; } .bv-btn { padding:0.4rem 0.65rem; } }
+.bv-btn:disabled { opacity:0.5; cursor:default; }
+.bv-tex { margin-left:auto; }
