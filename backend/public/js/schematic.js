@@ -154,155 +154,40 @@
   }
 
 
-  /* ------------------------ block textures ------------------------- */
-  // The real Minecraft block textures are NOT stored in this project. They are loaded in the
-  // visitor's browser, when a build is shown, from a public GitHub mirror of the game's assets.
-  // If a texture can't be loaded (offline, blocked, mirror gone) the viewer falls back to plain colours.
-  const TEX_BASES = [
-    "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21/assets/minecraft/textures/block/",
-    "https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.21/assets/minecraft/textures/block/"
+  /* ===================== real Minecraft block models =====================
+     Exact shapes and textures come from the game's own model files: for every block the viewer reads its
+     "blockstate" (which model, rotated how, for these properties) and the model (boxes + which texture on
+     which face), then builds the geometry itself. Nothing from the game is stored in this project: the files are
+     downloaded in the visitor's browser from a public GitHub mirror when a build is shown. If that fails
+     (offline / blocked) the viewer falls back to plain coloured cubes. */
+  const ASSET_ROOTS = [
+    "https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21/assets/minecraft/",
+    "https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets@1.21/assets/minecraft/"
   ];
-  // names of the block textures that exist in that mirror (so we never request one that isn't there)
-  const TEX_HAS = new Set("_list.json acacia_door_bottom acacia_door_top acacia_leaves acacia_log acacia_log_top acacia_planks acacia_sapling acacia_trapdoor activator_rail activator_rail_on allium amethyst_block amethyst_cluster ancient_debris_side ancient_debris_top andesite anvil anvil_top attached_melon_stem attached_pumpkin_stem azalea_leaves azalea_plant azalea_side azalea_top azure_bluet bamboo_block bamboo_block_top bamboo_door_bottom bamboo_door_top bamboo_fence bamboo_fence_gate bamboo_fence_gate_particle bamboo_fence_particle bamboo_large_leaves bamboo_mosaic bamboo_planks bamboo_singleleaf bamboo_small_leaves bamboo_stage0 bamboo_stalk bamboo_trapdoor barrel_bottom barrel_side barrel_top barrel_top_open basalt_side basalt_top beacon bedrock bee_nest_bottom bee_nest_front bee_nest_front_honey bee_nest_side bee_nest_top beehive_end beehive_front beehive_front_honey beehive_side beetroots_stage0 beetroots_stage1 beetroots_stage2 beetroots_stage3 bell_bottom bell_side bell_top big_dripleaf_side big_dripleaf_stem big_dripleaf_tip big_dripleaf_top birch_door_bottom birch_door_top birch_leaves birch_log birch_log_top birch_planks birch_sapling birch_trapdoor black_candle black_candle_lit black_concrete black_concrete_powder black_glazed_terracotta black_shulker_box black_stained_glass black_stained_glass_pane_top black_terracotta black_wool blackstone blackstone_top blast_furnace_front blast_furnace_front_on blast_furnace_side blast_furnace_top blue_candle blue_candle_lit blue_concrete blue_concrete_powder blue_glazed_terracotta blue_ice blue_orchid blue_shulker_box blue_stained_glass blue_stained_glass_pane_top blue_terracotta blue_wool bone_block_side bone_block_top bookshelf brain_coral brain_coral_block brain_coral_fan brewing_stand brewing_stand_base bricks brown_candle brown_candle_lit brown_concrete brown_concrete_powder brown_glazed_terracotta brown_mushroom brown_mushroom_block brown_shulker_box brown_stained_glass brown_stained_glass_pane_top brown_terracotta brown_wool bubble_coral bubble_coral_block bubble_coral_fan budding_amethyst cactus_bottom cactus_side cactus_top cake_bottom cake_inner cake_side cake_top calcite calibrated_sculk_sensor_amethyst calibrated_sculk_sensor_input_side calibrated_sculk_sensor_top campfire_fire campfire_log campfire_log_lit candle candle_lit carrots_stage0 carrots_stage1 carrots_stage2 carrots_stage3 cartography_table_side1 cartography_table_side2 cartography_table_side3 cartography_table_top carved_pumpkin cauldron_bottom cauldron_inner cauldron_side cauldron_top cave_vines cave_vines_lit cave_vines_plant cave_vines_plant_lit chain chain_command_block_back chain_command_block_conditional chain_command_block_front chain_command_block_side cherry_door_bottom cherry_door_top cherry_leaves cherry_log cherry_log_top cherry_planks cherry_sapling cherry_trapdoor chipped_anvil_top chiseled_bookshelf_empty chiseled_bookshelf_occupied chiseled_bookshelf_side chiseled_bookshelf_top chiseled_copper chiseled_deepslate chiseled_nether_bricks chiseled_polished_blackstone chiseled_quartz_block chiseled_quartz_block_top chiseled_red_sandstone chiseled_sandstone chiseled_stone_bricks chiseled_tuff chiseled_tuff_bricks chiseled_tuff_bricks_top chiseled_tuff_top chorus_flower chorus_flower_dead chorus_plant clay coal_block coal_ore coarse_dirt cobbled_deepslate cobblestone cobweb cocoa_stage0 cocoa_stage1 cocoa_stage2 command_block_back command_block_conditional command_block_front command_block_side comparator comparator_on composter_bottom composter_compost composter_ready composter_side composter_top conduit copper_block copper_bulb copper_bulb_lit copper_bulb_lit_powered copper_bulb_powered copper_door_bottom copper_door_top copper_grate copper_ore copper_trapdoor cornflower cracked_deepslate_bricks cracked_deepslate_tiles cracked_nether_bricks cracked_polished_blackstone_bricks cracked_stone_bricks crafter_bottom crafter_east crafter_east_crafting crafter_east_triggered crafter_north crafter_north_crafting crafter_south crafter_south_triggered crafter_top crafter_top_crafting crafter_top_triggered crafter_west crafter_west_crafting crafter_west_triggered crafting_table_front crafting_table_side crafting_table_top crimson_door_bottom crimson_door_top crimson_fungus crimson_nylium crimson_nylium_side crimson_planks crimson_roots crimson_roots_pot crimson_stem crimson_stem_top crimson_trapdoor crying_obsidian cut_copper cut_red_sandstone cut_sandstone cyan_candle cyan_candle_lit cyan_concrete cyan_concrete_powder cyan_glazed_terracotta cyan_shulker_box cyan_stained_glass cyan_stained_glass_pane_top cyan_terracotta cyan_wool damaged_anvil_top dandelion dark_oak_door_bottom dark_oak_door_top dark_oak_leaves dark_oak_log dark_oak_log_top dark_oak_planks dark_oak_sapling dark_oak_trapdoor dark_prismarine daylight_detector_inverted_top daylight_detector_side daylight_detector_top dead_brain_coral dead_brain_coral_block dead_brain_coral_fan dead_bubble_coral dead_bubble_coral_block dead_bubble_coral_fan dead_bush dead_fire_coral dead_fire_coral_block dead_fire_coral_fan dead_horn_coral dead_horn_coral_block dead_horn_coral_fan dead_tube_coral dead_tube_coral_block dead_tube_coral_fan debug debug2 deepslate deepslate_bricks deepslate_coal_ore deepslate_copper_ore deepslate_diamond_ore deepslate_emerald_ore deepslate_gold_ore deepslate_iron_ore deepslate_lapis_ore deepslate_redstone_ore deepslate_tiles deepslate_top destroy_stage_0 destroy_stage_1 destroy_stage_2 destroy_stage_3 destroy_stage_4 destroy_stage_5 destroy_stage_6 destroy_stage_7 destroy_stage_8 destroy_stage_9 detector_rail detector_rail_on diamond_block diamond_ore diorite dirt dirt_path_side dirt_path_top dispenser_front dispenser_front_vertical dragon_egg dried_kelp_bottom dried_kelp_side dried_kelp_top dripstone_block dropper_front dropper_front_vertical emerald_block emerald_ore enchanting_table_bottom enchanting_table_side enchanting_table_top end_portal_frame_eye end_portal_frame_side end_portal_frame_top end_rod end_stone end_stone_bricks exposed_chiseled_copper exposed_copper exposed_copper_bulb exposed_copper_bulb_lit exposed_copper_bulb_lit_powered exposed_copper_bulb_powered exposed_copper_door_bottom exposed_copper_door_top exposed_copper_grate exposed_copper_trapdoor exposed_cut_copper farmland farmland_moist fern fire_0 fire_1 fire_coral fire_coral_block fire_coral_fan fletching_table_front fletching_table_side fletching_table_top flower_pot flowering_azalea_leaves flowering_azalea_side flowering_azalea_top frogspawn frosted_ice_0 frosted_ice_1 frosted_ice_2 frosted_ice_3 furnace_front furnace_front_on furnace_side furnace_top gilded_blackstone glass glass_pane_top glow_item_frame glow_lichen glowstone gold_block gold_ore granite grass_block_side grass_block_side_overlay grass_block_snow grass_block_top gravel gray_candle gray_candle_lit gray_concrete gray_concrete_powder gray_glazed_terracotta gray_shulker_box gray_stained_glass gray_stained_glass_pane_top gray_terracotta gray_wool green_candle green_candle_lit green_concrete green_concrete_powder green_glazed_terracotta green_shulker_box green_stained_glass green_stained_glass_pane_top green_terracotta green_wool grindstone_pivot grindstone_round grindstone_side hanging_roots hay_block_side hay_block_top heavy_core honey_block_bottom honey_block_side honey_block_top honeycomb_block hopper_inside hopper_outside hopper_top horn_coral horn_coral_block horn_coral_fan ice iron_bars iron_block iron_door_bottom iron_door_top iron_ore iron_trapdoor item_frame jack_o_lantern jigsaw_bottom jigsaw_lock jigsaw_side jigsaw_top jukebox_side jukebox_top jungle_door_bottom jungle_door_top jungle_leaves jungle_log jungle_log_top jungle_planks jungle_sapling jungle_trapdoor kelp kelp_plant ladder lantern lapis_block lapis_ore large_amethyst_bud large_fern_bottom large_fern_top lava_flow lava_still lectern_base lectern_front lectern_sides lectern_top lever light_blue_candle light_blue_candle_lit light_blue_concrete light_blue_concrete_powder light_blue_glazed_terracotta light_blue_shulker_box light_blue_stained_glass light_blue_stained_glass_pane_top light_blue_terracotta light_blue_wool light_gray_candle light_gray_candle_lit light_gray_concrete light_gray_concrete_powder light_gray_glazed_terracotta light_gray_shulker_box light_gray_stained_glass light_gray_stained_glass_pane_top light_gray_terracotta light_gray_wool lightning_rod lightning_rod_on lilac_bottom lilac_top lily_of_the_valley lily_pad lime_candle lime_candle_lit lime_concrete lime_concrete_powder lime_glazed_terracotta lime_shulker_box lime_stained_glass lime_stained_glass_pane_top lime_terracotta lime_wool lodestone_side lodestone_top loom_bottom loom_front loom_side loom_top magenta_candle magenta_candle_lit magenta_concrete magenta_concrete_powder magenta_glazed_terracotta magenta_shulker_box magenta_stained_glass magenta_stained_glass_pane_top magenta_terracotta magenta_wool magma mangrove_door_bottom mangrove_door_top mangrove_leaves mangrove_log mangrove_log_top mangrove_planks mangrove_propagule mangrove_propagule_hanging mangrove_roots_side mangrove_roots_top mangrove_trapdoor medium_amethyst_bud melon_side melon_stem melon_top moss_block mossy_cobblestone mossy_stone_bricks mud mud_bricks muddy_mangrove_roots_side muddy_mangrove_roots_top mushroom_block_inside mushroom_stem mycelium_side mycelium_top nether_bricks nether_gold_ore nether_portal nether_quartz_ore nether_sprouts nether_wart_block nether_wart_stage0 nether_wart_stage1 nether_wart_stage2 netherite_block netherrack note_block oak_door_bottom oak_door_top oak_leaves oak_log oak_log_top oak_planks oak_sapling oak_trapdoor observer_back observer_back_on observer_front observer_side observer_top obsidian ochre_froglight_side ochre_froglight_top orange_candle orange_candle_lit orange_concrete orange_concrete_powder orange_glazed_terracotta orange_shulker_box orange_stained_glass orange_stained_glass_pane_top orange_terracotta orange_tulip orange_wool oxeye_daisy oxidized_chiseled_copper oxidized_copper oxidized_copper_bulb oxidized_copper_bulb_lit oxidized_copper_bulb_lit_powered oxidized_copper_bulb_powered oxidized_copper_door_bottom oxidized_copper_door_top oxidized_copper_grate oxidized_copper_trapdoor oxidized_cut_copper packed_ice packed_mud pearlescent_froglight_side pearlescent_froglight_top peony_bottom peony_top pink_candle pink_candle_lit pink_concrete pink_concrete_powder pink_glazed_terracotta pink_petals pink_petals_stem pink_shulker_box pink_stained_glass pink_stained_glass_pane_top pink_terracotta pink_tulip pink_wool piston_bottom piston_inner piston_side piston_top piston_top_sticky pitcher_crop_bottom pitcher_crop_bottom_stage_1 pitcher_crop_bottom_stage_2 pitcher_crop_bottom_stage_3 pitcher_crop_bottom_stage_4 pitcher_crop_side pitcher_crop_top pitcher_crop_top_stage_3 pitcher_crop_top_stage_4 podzol_side podzol_top pointed_dripstone_down_base pointed_dripstone_down_frustum pointed_dripstone_down_middle pointed_dripstone_down_tip pointed_dripstone_down_tip_merge pointed_dripstone_up_base pointed_dripstone_up_frustum pointed_dripstone_up_middle pointed_dripstone_up_tip pointed_dripstone_up_tip_merge polished_andesite polished_basalt_side polished_basalt_top polished_blackstone polished_blackstone_bricks polished_deepslate polished_diorite polished_granite polished_tuff poppy potatoes_stage0 potatoes_stage1 potatoes_stage2 potatoes_stage3 potted_azalea_bush_plant potted_azalea_bush_side potted_azalea_bush_top potted_flowering_azalea_bush_plant potted_flowering_azalea_bush_side potted_flowering_azalea_bush_top powder_snow powered_rail powered_rail_on prismarine prismarine_bricks pumpkin_side pumpkin_stem pumpkin_top purple_candle purple_candle_lit purple_concrete purple_concrete_powder purple_glazed_terracotta purple_shulker_box purple_stained_glass purple_stained_glass_pane_top purple_terracotta purple_wool purpur_block purpur_pillar purpur_pillar_top quartz_block_bottom quartz_block_side quartz_block_top quartz_bricks quartz_pillar quartz_pillar_top rail rail_corner raw_copper_block raw_gold_block raw_iron_block red_candle red_candle_lit red_concrete red_concrete_powder red_glazed_terracotta red_mushroom red_mushroom_block red_nether_bricks red_sand red_sandstone red_sandstone_bottom red_sandstone_top red_shulker_box red_stained_glass red_stained_glass_pane_top red_terracotta red_tulip red_wool redstone_block redstone_dust_dot redstone_dust_line0 redstone_dust_line1 redstone_dust_overlay redstone_lamp redstone_lamp_on redstone_ore redstone_torch redstone_torch_off reinforced_deepslate_bottom reinforced_deepslate_side reinforced_deepslate_top repeater repeater_on repeating_command_block_back repeating_command_block_conditional repeating_command_block_front repeating_command_block_side respawn_anchor_bottom respawn_anchor_side0 respawn_anchor_side1 respawn_anchor_side2 respawn_anchor_side3 respawn_anchor_side4 respawn_anchor_top respawn_anchor_top_off rooted_dirt rose_bush_bottom rose_bush_top sand sandstone sandstone_bottom sandstone_top scaffolding_bottom scaffolding_side scaffolding_top sculk sculk_catalyst_bottom sculk_catalyst_side sculk_catalyst_side_bloom sculk_catalyst_top sculk_catalyst_top_bloom sculk_sensor_bottom sculk_sensor_side sculk_sensor_tendril_active sculk_sensor_tendril_inactive sculk_sensor_top sculk_shrieker_bottom sculk_shrieker_can_summon_inner_top sculk_shrieker_inner_top sculk_shrieker_side sculk_shrieker_top sculk_vein sea_lantern sea_pickle seagrass short_grass shroomlight shulker_box slime_block small_amethyst_bud small_dripleaf_side small_dripleaf_stem_bottom small_dripleaf_stem_top small_dripleaf_top smithing_table_bottom smithing_table_front smithing_table_side smithing_table_top smoker_bottom smoker_front smoker_front_on smoker_side smoker_top smooth_basalt smooth_stone smooth_stone_slab_side sniffer_egg_not_cracked_bottom sniffer_egg_not_cracked_east sniffer_egg_not_cracked_north sniffer_egg_not_cracked_south sniffer_egg_not_cracked_top sniffer_egg_not_cracked_west sniffer_egg_slightly_cracked_bottom sniffer_egg_slightly_cracked_east sniffer_egg_slightly_cracked_north sniffer_egg_slightly_cracked_south sniffer_egg_slightly_cracked_top sniffer_egg_slightly_cracked_west sniffer_egg_very_cracked_bottom sniffer_egg_very_cracked_east sniffer_egg_very_cracked_north sniffer_egg_very_cracked_south sniffer_egg_very_cracked_top sniffer_egg_very_cracked_west snow soul_campfire_fire soul_campfire_log_lit soul_fire_0 soul_fire_1 soul_lantern soul_sand soul_soil soul_torch spawner sponge spore_blossom spore_blossom_base spruce_door_bottom spruce_door_top spruce_leaves spruce_log spruce_log_top spruce_planks spruce_sapling spruce_trapdoor stone stone_bricks stonecutter_bottom stonecutter_saw stonecutter_side stonecutter_top stripped_acacia_log stripped_acacia_log_top stripped_bamboo_block stripped_bamboo_block_top stripped_birch_log stripped_birch_log_top stripped_cherry_log stripped_cherry_log_top stripped_crimson_stem stripped_crimson_stem_top stripped_dark_oak_log stripped_dark_oak_log_top stripped_jungle_log stripped_jungle_log_top stripped_mangrove_log stripped_mangrove_log_top stripped_oak_log stripped_oak_log_top stripped_spruce_log stripped_spruce_log_top stripped_warped_stem stripped_warped_stem_top structure_block structure_block_corner structure_block_data structure_block_load structure_block_save sugar_cane sunflower_back sunflower_bottom sunflower_front sunflower_top suspicious_gravel_0 suspicious_gravel_1 suspicious_gravel_2 suspicious_gravel_3 suspicious_sand_0 suspicious_sand_1 suspicious_sand_2 suspicious_sand_3 sweet_berry_bush_stage0 sweet_berry_bush_stage1 sweet_berry_bush_stage2 sweet_berry_bush_stage3 tall_grass_bottom tall_grass_top tall_seagrass_bottom tall_seagrass_top target_side target_top terracotta tinted_glass tnt_bottom tnt_side tnt_top torch torchflower torchflower_crop_stage0 torchflower_crop_stage1 trial_spawner_bottom trial_spawner_side_active trial_spawner_side_active_ominous trial_spawner_side_inactive trial_spawner_side_inactive_ominous trial_spawner_top_active trial_spawner_top_active_ominous trial_spawner_top_ejecting_reward trial_spawner_top_ejecting_reward_ominous trial_spawner_top_inactive trial_spawner_top_inactive_ominous tripwire tripwire_hook tube_coral tube_coral_block tube_coral_fan tuff tuff_bricks turtle_egg turtle_egg_slightly_cracked turtle_egg_very_cracked twisting_vines twisting_vines_plant vault_bottom vault_bottom_ominous vault_front_ejecting vault_front_ejecting_ominous vault_front_off vault_front_off_ominous vault_front_on vault_front_on_ominous vault_side_off vault_side_off_ominous vault_side_on vault_side_on_ominous vault_top vault_top_ejecting vault_top_ejecting_ominous vault_top_ominous verdant_froglight_side verdant_froglight_top vine warped_door_bottom warped_door_top warped_fungus warped_nylium warped_nylium_side warped_planks warped_roots warped_roots_pot warped_stem warped_stem_top warped_trapdoor warped_wart_block water_flow water_overlay water_still weathered_chiseled_copper weathered_copper weathered_copper_bulb weathered_copper_bulb_lit weathered_copper_bulb_lit_powered weathered_copper_bulb_powered weathered_copper_door_bottom weathered_copper_door_top weathered_copper_grate weathered_copper_trapdoor weathered_cut_copper weeping_vines weeping_vines_plant wet_sponge wheat_stage0 wheat_stage1 wheat_stage2 wheat_stage3 wheat_stage4 wheat_stage5 wheat_stage6 wheat_stage7 white_candle white_candle_lit white_concrete white_concrete_powder white_glazed_terracotta white_shulker_box white_stained_glass white_stained_glass_pane_top white_terracotta white_tulip white_wool wither_rose yellow_candle yellow_candle_lit yellow_concrete yellow_concrete_powder yellow_glazed_terracotta yellow_shulker_box yellow_stained_glass yellow_stained_glass_pane_top yellow_terracotta yellow_wool".split(" "));
+  let assetReached = false;                 // becomes true once ANY file has been downloaded
 
-  const WOODS = ["oak", "spruce", "birch", "jungle", "acacia", "dark_oak", "mangrove", "cherry", "bamboo", "crimson", "warped"];
-  const TINT = { grass: "#91bd59", foliage: "#77ab2f", birch: "#80a755", spruce: "#619961", water: "#3f76e4", lily: "#208030" };
-  const SHAPE_SUFFIX = /_(stairs|slab|wall|fence_gate|fence|button|pressure_plate|hanging_sign|wall_sign|wall_hanging_sign|sign|trapdoor|door)$/;
-
-  function firstTex() {
-    for (let i = 0; i < arguments.length; i++) if (arguments[i] && TEX_HAS.has(arguments[i])) return arguments[i];
-    return null;
+  const jsonCache = new Map();
+  function fetchAsset(path) {               // -> parsed JSON, or null if it doesn't exist / can't be loaded
+    if (!jsonCache.has(path)) {
+      jsonCache.set(path, (async () => {
+        let sawNetworkError = false;
+        for (const root of ASSET_ROOTS) {
+          try {
+            const ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+            const timer = ctl ? setTimeout(() => ctl.abort(), 20000) : 0;
+            const r = await fetch(root + path, ctl ? { signal: ctl.signal } : undefined);
+            clearTimeout(timer);
+            if (r.ok) { assetReached = true; return await r.json(); }
+            if (r.status === 404) { assetReached = true; return null; }
+          } catch (e) { sawNetworkError = true; }
+        }
+        if (sawNetworkError) throw new Error("network");
+        return null;
+      })().catch(() => { jsonCache.delete(path); return null; }));
+    }
+    return jsonCache.get(path);
   }
 
-  // Which texture goes on which face of a block. Returns null when nothing sensible exists.
-  // { top, bottom, side, front (optional, the -z face), tintTop, tintSide, tintAll, overlay, glass }
-  function faceSpec(rawName) {
-    let n = cleanName(rawName).replace(/^waxed_/, "");
-    if (!n) return null;
-    const has = TEX_HAS.has.bind(TEX_HAS);
-    const all = t => (t ? { top: t, bottom: t, side: t } : null);
-
-    // --- blocks whose faces differ ---
-    if (n === "grass_block") return { top: "grass_block_top", bottom: "dirt", side: "grass_block_side", overlay: "grass_block_side_overlay", tintTop: TINT.grass, tintOverlay: TINT.grass };
-    if (n === "podzol" || n === "mycelium") return { top: n + "_top", bottom: "dirt", side: n + "_side" };
-    if (n === "dirt_path") return { top: "dirt_path_top", bottom: "dirt", side: "dirt_path_side" };
-    if (n === "farmland") return { top: "farmland", bottom: "dirt", side: "dirt" };
-    if (n === "grass" || n === "tall_grass" || n === "short_grass") return { top: "short_grass" in {} ? null : firstTex("short_grass", "grass_block_top"), bottom: "dirt", side: "dirt", tintAll: TINT.grass, _plant: true };
-    if (n === "crafting_table") return { top: "crafting_table_top", bottom: "oak_planks", side: "crafting_table_side", front: "crafting_table_front" };
-    if (n === "bookshelf") return { top: "oak_planks", bottom: "oak_planks", side: "bookshelf" };
-    if (n === "furnace" || n === "blast_furnace" || n === "smoker") {
-      const top = firstTex(n + "_top", "furnace_top");
-      return { top, bottom: top, side: firstTex(n + "_side", "furnace_side"), front: firstTex(n + "_front", "furnace_front") };
-    }
-    if (n === "tnt") return { top: "tnt_top", bottom: "tnt_bottom", side: "tnt_side" };
-    if (n === "pumpkin") return { top: "pumpkin_top", bottom: "pumpkin_top", side: "pumpkin_side" };
-    if (n === "carved_pumpkin" || n === "jack_o_lantern") return { top: "pumpkin_top", bottom: "pumpkin_top", side: "pumpkin_side", front: n };
-    if (n === "melon") return { top: "melon_top", bottom: "melon_top", side: "melon_side" };
-    if (n === "hay_block") return { top: "hay_block_top", bottom: "hay_block_top", side: "hay_block_side" };
-    if (n === "cactus") return { top: "cactus_top", bottom: "cactus_bottom", side: "cactus_side" };
-    if (n === "snow" || n === "snow_block") return all("snow");
-    if (n === "water") return { top: "water_still", bottom: "water_still", side: "water_still", tintAll: TINT.water, glass: true };
-    if (n === "lava") return all("lava_still");
-    if (n === "bedrock") return all("bedrock");
-    if (n === "barrel") return { top: "barrel_top", bottom: "barrel_bottom", side: "barrel_side" };
-    if (n === "chest" || n === "trapped_chest" || n === "ender_chest") return all(firstTex("oak_planks"));
-    if (n === "lectern") return { top: "lectern_top", bottom: "oak_planks", side: "lectern_sides" };
-    if (n === "composter") return { top: "composter_top", bottom: "composter_bottom", side: "composter_side" };
-    if (n === "tuff" || n === "calcite" || n === "dripstone_block") return all(n);
-    if (n === "torch" || n === "wall_torch") return all("torch");
-    if (n === "soul_torch") return all("soul_torch");
-    if (n === "lantern" || n === "soul_lantern") return { top: n, bottom: n, side: n };
-    if (n === "ladder") return all("ladder");
-    if (n === "iron_bars") return all("iron_bars");
-    if (n === "chain") return all("chain");
-    if (n === "cobweb") return all("cobweb");
-    if (n === "glass_pane" || n === "glass") return Object.assign(all("glass"), { glass: true });
-    if (n === "tinted_glass") return Object.assign(all("tinted_glass"), { glass: true });
-    if (n === "ice" || n === "frosted_ice") return Object.assign(all("ice"), { glass: true });
-    if (n === "redstone_lamp") return all("redstone_lamp");
-    if (n === "sea_lantern") return all("sea_lantern");
-    if (n === "glowstone") return all("glowstone");
-    if (n === "shroomlight") return all("shroomlight");
-    if (n === "bee_nest") return { top: "bee_nest_top", bottom: "bee_nest_bottom", side: "bee_nest_side", front: "bee_nest_front" };
-
-    // stained glass and panes
-    let m = /^([a-z_]+)_stained_glass(_pane)?$/.exec(n);
-    if (m && has(m[1] + "_stained_glass")) return Object.assign(all(m[1] + "_stained_glass"), { glass: true });
-
-    // sandstone / quartz families have separate top, bottom and side art
-    m = /^(red_)?sandstone$/.exec(n);
-    if (m) { const p = (m[1] || "") + "sandstone"; return { top: p + "_top", bottom: p + "_bottom", side: p }; }
-    m = /^(?:smooth_)(red_)?sandstone$/.exec(n);
-    if (m) return all((m[1] || "") + "sandstone_top");
-    m = /^(?:cut_)(red_)?sandstone$/.exec(n);
-    if (m) { const p = (m[1] || "") + "sandstone"; return { top: p + "_top", bottom: p + "_top", side: "cut_" + p }; }
-    m = /^(?:chiseled_)(red_)?sandstone$/.exec(n);
-    if (m) { const p = (m[1] || "") + "sandstone"; return { top: p + "_top", bottom: p + "_top", side: "chiseled_" + p }; }
-    if (n === "quartz_block") return { top: "quartz_block_top", bottom: "quartz_block_bottom", side: "quartz_block_side" };
-    if (n === "smooth_quartz") return all("quartz_block_bottom");
-    if (n === "quartz_pillar") return { top: "quartz_pillar_top", bottom: "quartz_pillar_top", side: "quartz_pillar" };
-    if (n === "chiseled_quartz_block") return { top: "chiseled_quartz_block_top", bottom: "chiseled_quartz_block_top", side: "chiseled_quartz_block" };
-    if (n === "purpur_pillar") return { top: "purpur_pillar_top", bottom: "purpur_pillar_top", side: "purpur_pillar" };
-    if (n === "deepslate") return { top: "deepslate_top", bottom: "deepslate_top", side: "deepslate" };
-    if (n === "basalt" || n === "polished_basalt") return { top: n + "_top", bottom: n + "_top", side: n + "_side" };
-    if (n === "smooth_basalt") return all("smooth_basalt");
-    if (n === "smooth_stone" || n === "smooth_stone_slab") return all("smooth_stone");
-    if (n === "stone_slab") return all("stone");
-    if (n === "bone_block") return { top: "bone_block_top", bottom: "bone_block_top", side: "bone_block_side" };
-    if (n === "target") return { top: "target_top", bottom: "target_top", side: "target_side" };
-    if (n === "end_stone_bricks" || n === "end_stone") return all(n);
-
-    // logs, wood, stems
-    m = /^(stripped_)?(.+)_(log|wood|stem|hyphae)$/.exec(n);
-    if (m) {
-      const st = m[1] || "", kind = m[3], wood = m[2];
-      const isStem = kind === "stem" || kind === "hyphae";
-      const base = st + wood + (isStem ? "_stem" : "_log");
-      if (has(base)) {
-        const top = (kind === "wood" || kind === "hyphae") ? base : firstTex(base + "_top", base);
-        return { top, bottom: top, side: base };
-      }
-    }
-    if (n === "bamboo_block" || n === "stripped_bamboo_block") return { top: n + "_top", bottom: n + "_top", side: n };
-
-    // leaves (grey in the files; the game tints them by biome)
-    m = /^(.+)_leaves$/.exec(n);
-    if (m && has(n)) {
-      let tint = TINT.foliage;
-      if (m[1] === "birch") tint = TINT.birch; else if (m[1] === "spruce") tint = TINT.spruce;
-      else if (m[1] === "azalea" || m[1] === "flowering_azalea" || m[1] === "cherry") tint = null;
-      return Object.assign(all(n), tint ? { tintAll: tint } : {});
-    }
-    if (n === "vine" || n === "lily_pad") return Object.assign(all(n), { tintAll: n === "vine" ? TINT.foliage : TINT.lily });
-
-    // chiselled / polished / coloured families: the name is usually the file name
-    if (has(n)) return all(n);
-
-    // stairs, slabs, walls, fences, doors... are drawn as full blocks of their material
-    if (SHAPE_SUFFIX.test(n)) {
-      const base = n.replace(SHAPE_SUFFIX, "");
-      if (/(door|trapdoor)$/.test(n)) {
-        const t = firstTex(n + "_bottom", n, base + "_door_bottom");
-        if (t) return all(t);
-      }
-      if (/sign$/.test(n) || /fence/.test(n) || /_button$|_pressure_plate$/.test(n)) {
-        if (WOODS.indexOf(base) !== -1) return all(firstTex(base + "_planks"));
-      }
-      if (WOODS.indexOf(base) !== -1) return all(firstTex(base + "_planks"));
-      const alias = { brick: "bricks", stone_brick: "stone_bricks", nether_brick: "nether_bricks", red_nether_brick: "red_nether_bricks",
-        mud_brick: "mud_bricks", end_stone_brick: "end_stone_bricks", prismarine_brick: "prismarine_bricks", deepslate_brick: "deepslate_bricks",
-        deepslate_tile: "deepslate_tiles", polished_blackstone_brick: "polished_blackstone_bricks", quartz: "quartz_block", purpur: "purpur_block",
-        cobbled_deepslate: "cobbled_deepslate", stone: "stone", sandstone: "sandstone", red_sandstone: "red_sandstone" };
-      const baseSpec = alias[base] ? faceSpec(alias[base]) : faceSpec(base);
-      if (baseSpec) return baseSpec;
-      const t = firstTex(base, base + "s", base + "_block", base + "_planks", base + "_bricks");
-      if (t) return all(t);
-    }
-    if (/^potted_/.test(n)) return all("flower_pot");
-    return null;
-  }
-
-  /* ---- texture images: loaded once, first frame only (water/lava/etc. are animation strips) ---- */
   const texCache = new Map();
   function loadImage(url) {
     return new Promise(resolve => {
@@ -315,13 +200,15 @@
       } catch (e) { resolve(null); }
     });
   }
-  function loadTexCanvas(name) {
-    if (!texCache.has(name)) {
-      texCache.set(name, (async () => {
-        for (const base of TEX_BASES) {
-          const img = await loadImage(base + name + ".png");
+  // path like "block/stone". Animated textures are tall strips: only the first (square) frame is used.
+  function loadTexCanvas(path) {
+    if (!texCache.has(path)) {
+      texCache.set(path, (async () => {
+        for (const root of ASSET_ROOTS) {
+          const img = await loadImage(root + "textures/" + path + ".png");
           if (img && img.width) {
-            const size = img.width;                                  // frames are stacked: the first one is size x size
+            assetReached = true;
+            const size = img.width;
             const c = document.createElement("canvas");
             c.width = size; c.height = size;
             const ctx = c.getContext("2d", { willReadFrequently: true });
@@ -330,33 +217,517 @@
           }
         }
         return null;
-      })().then(c => { if (!c) texCache.delete(name); return c; }));    // a failed load can be retried next time
+      })().then(c => { if (!c) texCache.delete(path); return c; }));
     }
-    return texCache.get(name);
+    return texCache.get(path);
   }
-  function hasAlpha(canvas) {
-    try {
-      const d = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
-      for (let i = 3; i < d.length; i += 4) if (d[i] < 250) return true;
-    } catch (e) { /* tainted canvas: assume opaque */ }
-    return false;
+
+  /* ---- models: load a model and everything it inherits from ---- */
+  const modelCache = new Map();
+  function loadModel(rawName) {
+    const name = String(rawName).replace(/^minecraft:/, "");
+    if (!modelCache.has(name)) {
+      modelCache.set(name, (async () => {
+        if (name.indexOf("builtin/") === 0) return { builtin: name, textures: {}, elements: null };
+        const json = await fetchAsset("models/" + name + ".json");
+        if (!json) return null;
+        const parent = json.parent ? await loadModel(json.parent) : null;
+        return {
+          textures: Object.assign({}, parent ? parent.textures : {}, json.textures || {}),
+          elements: json.elements || (parent ? parent.elements : null),
+          builtin: (!json.elements && parent && parent.builtin) || null
+        };
+      })());
+    }
+    return modelCache.get(name);
   }
-  // grass sides = dirt-with-green-edge + a grey overlay that has to be tinted green
-  function compositeOverlay(baseC, overlayC, tint) {
-    const c = document.createElement("canvas");
-    c.width = baseC.width; c.height = baseC.height;
-    const ctx = c.getContext("2d");
-    ctx.drawImage(baseC, 0, 0);
-    const t = document.createElement("canvas");
-    t.width = c.width; t.height = c.height;
-    const tc = t.getContext("2d");
-    tc.drawImage(overlayC, 0, 0, t.width, t.height);
-    tc.globalCompositeOperation = "multiply";
-    tc.fillStyle = tint; tc.fillRect(0, 0, t.width, t.height);
-    tc.globalCompositeOperation = "destination-in";
-    tc.drawImage(overlayC, 0, 0, t.width, t.height);
-    ctx.drawImage(t, 0, 0);
-    return c;
+  // "#side" -> "minecraft:block/x" -> "block/x"
+  function resolveTexRef(ref, textures) {
+    let r = ref, guard = 0;
+    while (typeof r === "string" && r.charAt(0) === "#" && guard++ < 12) r = textures[r.slice(1)];
+    if (typeof r !== "string" || r.charAt(0) === "#") return null;
+    return r.replace(/^minecraft:/, "");
+  }
+
+  /* ---- block states ---- */
+  const PROP_PREF = { half: ["bottom", "lower"], facing: ["north"], shape: ["straight"], type: ["bottom", "single"], axis: ["y"],
+    hinge: ["left"], part: ["foot"], face: ["wall", "floor"], attachment: ["floor"], orientation: ["north_up"], tilt: ["none"] };
+  function defaultProp(k, values) {
+    const pref = PROP_PREF[k];
+    if (pref) for (const p of pref) if (values.has(p)) return p;
+    for (const p of ["false", "0", "none"]) if (values.has(p)) return p;
+    return values.size ? [...values][0] : "false";
+  }
+  function walkWhen(w, fn) {
+    if (!w) return;
+    if (w.OR || w.AND) { (w.OR || w.AND).forEach(x => walkWhen(x, fn)); return; }
+    Object.keys(w).forEach(k => fn(k, String(w[k])));
+  }
+  function stateValues(bs) {
+    if (bs.__vals) return bs.__vals;
+    const vals = {};
+    const note = (k, v) => { (vals[k] = vals[k] || new Set()).add(v); };
+    if (bs.variants) Object.keys(bs.variants).forEach(key => { if (key && key !== "normal") key.split(",").forEach(p => { const i = p.indexOf("="); if (i > 0) note(p.slice(0, i), p.slice(i + 1)); }); });
+    if (bs.multipart) bs.multipart.forEach(part => walkWhen(part.when, (k, v) => v.split("|").forEach(x => note(k, x))));
+    Object.defineProperty(bs, "__vals", { value: vals, enumerable: false });
+    return vals;
+  }
+  function whenOK(w, eff) {
+    if (w.OR) return w.OR.some(x => whenOK(x, eff));
+    if (w.AND) return w.AND.every(x => whenOK(x, eff));
+    return Object.keys(w).every(k => String(w[k]).split("|").indexOf(eff(k)) !== -1);
+  }
+  // -> list of { model, x, y, uvlock } to draw for this block state
+  function selectApplies(bs, props, rnd) {
+    const vals = stateValues(bs);
+    const eff = k => (props[k] !== undefined ? String(props[k]) : defaultProp(k, vals[k] || new Set()));
+    const pickOne = a => (Array.isArray(a) ? a[rnd % a.length] : a);
+    const out = [];
+    if (bs.variants) {
+      const keys = Object.keys(bs.variants);
+      let hit = null;
+      for (const key of keys) {
+        if (key === "" || key === "normal" || key.split(",").every(p => { const i = p.indexOf("="); return eff(p.slice(0, i)) === p.slice(i + 1); })) { hit = bs.variants[key]; break; }
+      }
+      if (!hit && keys.length) hit = bs.variants[keys[0]];
+      if (hit) out.push(pickOne(hit));
+    }
+    if (bs.multipart) bs.multipart.forEach(part => { if (!part.when || whenOK(part.when, eff)) out.push(pickOne(part.apply)); });
+    return out.filter(Boolean);
+  }
+
+  /* ---- properties the game works out from the neighbours (fences, walls, panes, stair corners) ---- */
+  const NOT_FULL = /(stairs|slab|fence|wall|pane|bars|door|torch|lantern|ladder|carpet|sign|button|plate|banner|bed$|chest|cake|candle|chain|lever|rail|flower|tulip|poppy|dandelion|orchid|allium|bluet|daisy|cornflower|lily|rose_bush|peony|lilac|sapling|grass|fern|bush|vine|leaves|glass|ice|water|lava|cobweb|slime|honey|fire|snow$|head|skull|pot$|cauldron|hopper|anvil|bell|brewing|lectern|enchanting|end_rod|lightning|scaffolding|campfire|repeater|comparator|redstone_wire|tripwire|farmland|dirt_path|soul_sand|cactus|dripleaf|pickle|egg|coral|kelp|seagrass|azalea|mushroom$|air)/;
+  const isSolidBlock = id => !!id && !NOT_FULL.test(id);
+  const isFence = id => /_fence$/.test(id) && !/fence_gate$/.test(id);
+  const isPane = id => id === "iron_bars" || /(^|_)glass_pane$/.test(id);
+  const isWall = id => /_wall$/.test(id) && !/wall_(torch|sign|banner|head|skull|hanging_sign)/.test(id);
+  const isStairs = id => /_stairs$/.test(id);
+  const HDIRS = { north: [0, -1], east: [1, 0], south: [0, 1], west: [-1, 0] };
+  const CCW = { north: "west", west: "south", south: "east", east: "north" };
+  const OPP = { north: "south", south: "north", east: "west", west: "east" };
+
+  // info(x,y,z) -> { id, props } | null.  Fills in only what the author did not state.
+  function deriveProps(id, props, x, y, z, info) {
+    const p = Object.assign({}, props);
+    const nb = (dx, dy, dz) => info(x + dx, y + dy, z + dz);
+    if (isFence(id)) {
+      const cat = id === "nether_brick_fence" ? "n" : "w";
+      Object.keys(HDIRS).forEach(dir => {
+        if (p[dir] !== undefined) return;
+        const o = nb(HDIRS[dir][0], 0, HDIRS[dir][1]);
+        let c = false;
+        if (o) {
+          if (isFence(o.id)) c = (o.id === "nether_brick_fence" ? "n" : "w") === cat;
+          else if (/fence_gate$/.test(o.id)) { const f = o.props.facing || "north"; c = (dir === "north" || dir === "south") ? (f === "east" || f === "west") : (f === "north" || f === "south"); }
+          else c = isSolidBlock(o.id);
+        }
+        p[dir] = c ? "true" : "false";
+      });
+    } else if (isPane(id)) {
+      Object.keys(HDIRS).forEach(dir => {
+        if (p[dir] !== undefined) return;
+        const o = nb(HDIRS[dir][0], 0, HDIRS[dir][1]);
+        p[dir] = (o && (isPane(o.id) || isWall(o.id) || isSolidBlock(o.id) || /(^|_)glass$/.test(o.id))) ? "true" : "false";
+      });
+    } else if (isWall(id)) {
+      const above = nb(0, 1, 0);
+      const aboveSolid = !!above && (isWall(above.id) || isSolidBlock(above.id));
+      const conn = {};
+      Object.keys(HDIRS).forEach(dir => {
+        const o = nb(HDIRS[dir][0], 0, HDIRS[dir][1]);
+        conn[dir] = !!o && (isWall(o.id) || /fence_gate$/.test(o.id) || isSolidBlock(o.id));
+        if (p[dir] === undefined) p[dir] = conn[dir] ? (aboveSolid ? "tall" : "low") : "none";
+      });
+      if (p.up === undefined) {
+        const n = Object.keys(HDIRS).filter(d => p[d] !== "none");
+        const straight = n.length === 2 && OPP[n[0]] === n[1];
+        p.up = (!straight || aboveSolid) ? "true" : "false";
+      }
+    } else if (isStairs(id)) {
+      const facing = p.facing || "north", half = p.half || "bottom";
+      if (p.shape === undefined) {
+        const stair = (dir) => { const o = nb(HDIRS[dir][0], 0, HDIRS[dir][1]); return o && isStairs(o.id) && (o.props.half || "bottom") === half ? o : null; };
+        const axisOf = d => (d === "north" || d === "south" ? "z" : "x");
+        const canTake = (dir) => { const o = nb(HDIRS[dir][0], 0, HDIRS[dir][1]); return !(o && isStairs(o.id)) || (o.props.facing || "north") !== facing || (o.props.half || "bottom") !== half; };
+        let shape = "straight";
+        const front = stair(facing);
+        if (front) {
+          const d2 = front.props.facing || "north";
+          if (axisOf(d2) !== axisOf(facing) && canTake(OPP[d2])) shape = d2 === CCW[facing] ? "outer_left" : "outer_right";
+        }
+        if (shape === "straight") {
+          const back = stair(OPP[facing]);
+          if (back) {
+            const d3 = back.props.facing || "north";
+            if (axisOf(d3) !== axisOf(facing) && canTake(d3)) shape = d3 === CCW[facing] ? "inner_left" : "inner_right";
+          }
+        }
+        p.shape = shape;
+      }
+    }
+    return p;
+  }
+
+  /* ---- tints (grass, leaves, water ...: the files are grey, the game colours them by biome) ---- */
+  function tintFor(id, tintindex) {
+    if (tintindex === undefined || tintindex === null) return null;
+    if (id === "water") return "#3f76e4";
+    if (/leaves$/.test(id)) {
+      if (/^(azalea|flowering_azalea|cherry)/.test(id)) return null;
+      if (/^birch/.test(id)) return "#80a755";
+      if (/^spruce/.test(id)) return "#619961";
+      return "#77ab2f";
+    }
+    if (id === "vine") return "#77ab2f";
+    if (id === "lily_pad") return "#208030";
+    if (id === "redstone_wire") return "#4b0000";
+    if (/^(grass_block|short_grass|tall_grass|fern|large_fern|sugar_cane|potted_fern)$/.test(id)) return "#91bd59";
+    return null;
+  }
+
+  /* ---- shapes for blocks the game draws with special code (chests, beds, signs...) and for unknown blocks ---- */
+  function boxModel(boxes) {               // boxes: [{ from, to, tex }] -> a model with the same texture on every face
+    const textures = {}, elements = [];
+    boxes.forEach((b, i) => {
+      textures["t" + i] = b.tex;
+      const faces = {};
+      ["down", "up", "north", "south", "west", "east"].forEach(f => { faces[f] = { texture: "#t" + i, cullface: (b.cull ? f : undefined), tintindex: b.tint }; });
+      elements.push({ from: b.from, to: b.to, faces });
+    });
+    return { textures, elements, builtin: null, synthetic: true };
+  }
+  function colorWord(id) { for (const c of COLOR_WORDS) if (id === c || id.indexOf(c + "_") === 0 || id.indexOf("_" + c + "_") !== -1 || id.slice(-c.length - 1) === "_" + c) return c; return null; }
+  function specialModel(id) {
+    const wood = (WOODS_RE.exec(id) || [])[1] || "oak";
+    if (id === "water") return boxModel([{ from: [0, 0, 0], to: [16, 16, 16], tex: "block/water_still", tint: 0, cull: true }]);
+    if (id === "lava") return boxModel([{ from: [0, 0, 0], to: [16, 16, 16], tex: "block/lava_still", cull: true }]);
+    if (/(^|_)chest$/.test(id)) return boxModel([{ from: [1, 0, 1], to: [15, 14, 15], tex: id === "ender_chest" ? "block/obsidian" : "block/oak_planks" }]);
+    if (/_bed$/.test(id)) return boxModel([{ from: [0, 3, 0], to: [16, 9, 16], tex: "block/" + (colorWord(id) || "red") + "_wool" }, { from: [0, 0, 0], to: [3, 3, 3], tex: "block/oak_planks" }, { from: [13, 0, 13], to: [16, 3, 16], tex: "block/oak_planks" }]);
+    if (/(^|_)(wall_)?(hanging_)?sign$/.test(id)) return boxModel([{ from: [1, 8, 7], to: [15, 16, 9], tex: "block/" + wood + "_planks" }, { from: [7, 0, 7.5], to: [9, 8, 8.5], tex: "block/" + wood + "_planks" }]);
+    if (/_banner$/.test(id)) return boxModel([{ from: [2, 0, 7], to: [14, 16, 9], tex: "block/" + (colorWord(id) || "white") + "_wool" }]);
+    if (/shulker_box$/.test(id)) return boxModel([{ from: [0, 0, 0], to: [16, 16, 16], tex: "block/" + (colorWord(id) || "purple") + "_concrete", cull: true }]);
+    return null;
+  }
+  const WOODS_RE = /^(oak|spruce|birch|jungle|acacia|dark_oak|mangrove|cherry|bamboo|crimson|warped)/;
+  const HIDDEN_IDS = /^(air|cave_air|void_air|barrier|light|structure_void|moving_piston)$/;
+
+  /* ---- geometry helpers ---- */
+  const FACES = ["down", "up", "north", "south", "west", "east"];
+  const DIRV = { down: [0, -1, 0], up: [0, 1, 0], north: [0, 0, -1], south: [0, 0, 1], west: [-1, 0, 0], east: [1, 0, 0] };
+  // corners in the order top-left, top-right, bottom-right, bottom-left AS SEEN FROM OUTSIDE (the game's convention)
+  function faceCorners(f, a, b) {
+    const [x1, y1, z1] = a, [x2, y2, z2] = b;
+    switch (f) {
+      case "north": return [[x2, y2, z1], [x1, y2, z1], [x1, y1, z1], [x2, y1, z1]];
+      case "south": return [[x1, y2, z2], [x2, y2, z2], [x2, y1, z2], [x1, y1, z2]];
+      case "west": return [[x1, y2, z1], [x1, y2, z2], [x1, y1, z2], [x1, y1, z1]];
+      case "east": return [[x2, y2, z2], [x2, y2, z1], [x2, y1, z1], [x2, y1, z2]];
+      case "up": return [[x1, y2, z1], [x2, y2, z1], [x2, y2, z2], [x1, y2, z2]];
+      default: return [[x1, y1, z2], [x2, y1, z2], [x2, y1, z1], [x1, y1, z1]];   // down
+    }
+  }
+  function defaultUV(f, a, b) {
+    const [x1, y1, z1] = a, [x2, y2, z2] = b;
+    switch (f) {
+      case "down": return [x1, 16 - z2, x2, 16 - z1];
+      case "up": return [x1, z1, x2, z2];
+      case "north": return [16 - x2, 16 - y2, 16 - x1, 16 - y1];
+      case "south": return [x1, 16 - y2, x2, 16 - y1];
+      case "west": return [z1, 16 - y2, z2, 16 - y1];
+      default: return [16 - z2, 16 - y2, 16 - z1, 16 - y1];   // east
+    }
+  }
+  const rad = d => d * Math.PI / 180;
+  // standard right-handed rotation about an axis (used by element "rotation")
+  function rotAxis(v, axis, deg) {
+    const c = Math.cos(rad(deg)), s = Math.sin(rad(deg));
+    if (axis === "x") return [v[0], v[1] * c - v[2] * s, v[1] * s + v[2] * c];
+    if (axis === "y") return [v[0] * c + v[2] * s, v[1], -v[0] * s + v[2] * c];
+    return [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+  }
+  // block-state rotations: "x" tips the model, "y" turns it clockwise seen from above (both about the block centre)
+  function rotVariantX(v, deg) { const c = Math.cos(rad(deg)), s = Math.sin(rad(deg)); return [v[0], v[1] * c + v[2] * s, -v[1] * s + v[2] * c]; }
+  function rotVariantY(v, deg) { const c = Math.cos(rad(deg)), s = Math.sin(rad(deg)); return [v[0] * c - v[2] * s, v[1], v[0] * s + v[2] * c]; }
+  function dirName(v) {
+    const ax = Math.abs(v[0]), ay = Math.abs(v[1]), az = Math.abs(v[2]);
+    if (ay >= ax && ay >= az) return v[1] > 0 ? "up" : "down";
+    if (az >= ax) return v[2] > 0 ? "south" : "north";
+    return v[0] > 0 ? "east" : "west";
+  }
+
+  /* ---- atlas: every texture the build needs, 16x16 each, in one image ---- */
+  function buildAtlas(THREE, images) {      // images: Map path -> canvas | null
+    const paths = ["$white", "$missing"].concat([...images.keys()]);
+    const cols = Math.ceil(Math.sqrt(paths.length)), rows = Math.ceil(paths.length / cols);
+    const canvas = document.createElement("canvas");
+    canvas.width = cols * 16; canvas.height = rows * 16;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false;
+    const info = new Map();
+    paths.forEach((p, i) => {
+      const cx = (i % cols) * 16, cy = Math.floor(i / cols) * 16;
+      info.set(p, { cx, cy, cls: "opaque" });
+      const img = images.get(p);
+      if (p === "$white") { ctx.fillStyle = "#fff"; ctx.fillRect(cx, cy, 16, 16); }
+      else if (!img) {                       // missing texture: the game's purple/black checker
+        for (let yy = 0; yy < 2; yy++) for (let xx = 0; xx < 2; xx++) { ctx.fillStyle = (xx + yy) % 2 ? "#000" : "#f800f8"; ctx.fillRect(cx + xx * 8, cy + yy * 8, 8, 8); }
+      } else ctx.drawImage(img, 0, 0, img.width, img.height, cx, cy, 16, 16);
+    });
+    try {                                    // opaque / cut-out (leaves, glass) / translucent (stained glass, water, ice)
+      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      info.forEach(v => {
+        let cut = 0, semi = 0;
+        for (let yy = 0; yy < 16; yy++) for (let xx = 0; xx < 16; xx++) {
+          const a = data[((v.cy + yy) * canvas.width + v.cx + xx) * 4 + 3];
+          if (a === 0) cut++; else if (a < 250) semi++;
+        }
+        v.cls = semi > 4 ? "translucent" : (cut > 0 || semi > 0 ? "cutout" : "opaque");
+      });
+    } catch (e) { /* tainted canvas: treat everything as opaque */ }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    tex.needsUpdate = true;
+    return { canvas, tex, info, W: canvas.width, H: canvas.height };
+  }
+
+  /* ---- bake one model (+ rotation) into quads that can be copied into any cell ---- */
+  const SHADE_UP = 1.0, SHADE_DOWN = 0.5, SHADE_NS = 0.8, SHADE_EW = 0.6;
+  function hexToRgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16 & 255) / 255, (n >> 8 & 255) / 255, (n & 255) / 255]; }
+  function bakeDesc(desc, atlas) {
+    const mdl = desc.mdl, quads = [];
+    const tintRgb = desc.flat ? hexToRgb(desc.flat) : null;
+    (mdl.elements || []).forEach(el => {
+      const from = el.from, to = el.to;
+      Object.keys(el.faces || {}).forEach(fname => {
+        if (FACES.indexOf(fname) === -1) return;
+        const f = el.faces[fname];
+        let tpath = desc.flat ? "$white" : resolveTexRef(f.texture, mdl.textures);
+        if (!tpath) return;
+        const ti = atlas.info.get(tpath) || atlas.info.get("$missing");
+        let corners = faceCorners(fname, from, to);
+        // texture coordinates (in 0..16 texture pixels), rotated if the face says so
+        const uv = f.uv || defaultUV(fname, from, to);
+        const base = [[uv[0], uv[1]], [uv[2], uv[1]], [uv[2], uv[3]], [uv[0], uv[3]]];
+        let rotTex = (f.rotation || 0);
+        // normal of this face after every rotation (decides shading and which neighbour culls it)
+        let nrm = DIRV[fname].slice();
+        if (el.rotation) nrm = rotAxis(nrm, el.rotation.axis, el.rotation.angle);
+        corners = corners.map(c => {
+          let p = c.slice();
+          if (el.rotation) {
+            const o = el.rotation.origin || [8, 8, 8];
+            p = [p[0] - o[0], p[1] - o[1], p[2] - o[2]];
+            p = rotAxis(p, el.rotation.axis, el.rotation.angle);
+            if (el.rotation.rescale) {
+              const k = 1 / Math.cos(rad(Math.abs(el.rotation.angle)));
+              if (el.rotation.axis !== "x") p[0] *= k;
+              if (el.rotation.axis !== "y") p[1] *= k;
+              if (el.rotation.axis !== "z") p[2] *= k;
+            }
+            p = [p[0] + o[0], p[1] + o[1], p[2] + o[2]];
+          }
+          p = [p[0] - 8, p[1] - 8, p[2] - 8];
+          if (desc.rx) p = rotVariantX(p, desc.rx);
+          if (desc.ry) p = rotVariantY(p, desc.ry);
+          return [p[0] + 8, p[1] + 8, p[2] + 8];
+        });
+        if (desc.rx) nrm = rotVariantX(nrm, desc.rx);
+        if (desc.ry) nrm = rotVariantY(nrm, desc.ry);
+        const nd = dirName(nrm);
+        if (desc.uvlock && (nd === "up" || nd === "down") && (desc.ry || 0)) rotTex = (rotTex + (desc.rx === 180 ? 1 : -1) * desc.ry + 720) % 360;
+        const k = Math.round(rotTex / 90) % 4;
+        const uvv = [0, 1, 2, 3].map(i => base[(i - k + 4) % 4]);
+        const EPS = 0.02;
+        const uvs = [];
+        uvv.forEach(t => {
+          const u = Math.min(16 - EPS, Math.max(EPS, t[0])), v = Math.min(16 - EPS, Math.max(EPS, t[1]));
+          uvs.push((ti.cx + u) / atlas.W, 1 - (ti.cy + v) / atlas.H);
+        });
+        // shading like the game's face lighting
+        let shade = 1;
+        if (el.shade !== false) shade = nd === "up" ? SHADE_UP : nd === "down" ? SHADE_DOWN : (nd === "north" || nd === "south") ? SHADE_NS : SHADE_EW;
+        const tint = desc.flat ? tintRgb : (f.tintindex !== undefined && desc.tintHex ? hexToRgb(desc.tintHex) : [1, 1, 1]);
+        // which neighbour hides this face (cullface turns with the block)
+        let cull = -1;
+        if (f.cullface) {
+          let cv = DIRV[f.cullface] || [0, 0, 0];
+          if (desc.rx) cv = rotVariantX(cv, desc.rx);
+          if (desc.ry) cv = rotVariantY(cv, desc.ry);
+          cull = FACES.indexOf(dirName(cv));
+        }
+        quads.push({
+          pos: corners.map(c => [c[0] / 16, c[1] / 16, c[2] / 16]),
+          uv: uvs, col: [tint[0] * shade, tint[1] * shade, tint[2] * shade],
+          cull, cls: ti.cls
+        });
+      });
+    });
+    return quads;
+  }
+  // a model that is exactly one full cube with all six faces present
+  function isFullCube(desc) {
+    const els = desc.mdl.elements;
+    if (!els || els.length !== 1) return false;
+    const e = els[0];
+    if (e.rotation || e.from.join() !== "0,0,0" || e.to.join() !== "16,16,16") return false;
+    return FACES.every(f => e.faces && e.faces[f]);
+  }
+
+  /* ---- put it all together for one build ---- */
+  async function loadEngine(spec, THREE) {
+    const { w, h, d, cells, names } = spec, props = spec.props || [];
+    const idx3 = (x, y, z) => x + w * (z + d * y);
+    const inB = (x, y, z) => x >= 0 && y >= 0 && z >= 0 && x < w && y < h && z < d;
+    const info = (x, y, z) => { if (!inB(x, y, z)) return null; const n = cells[idx3(x, y, z)]; return n === -1 ? null : { id: names[n], props: props[n] || {} }; };
+
+    // 1. block-state files for every block the build uses
+    const ids = [...new Set(names)].filter(id => !HIDDEN_IDS.test(id));
+    const bsById = {};
+    await Promise.all(ids.map(async id => { if (!specialModel(id) || id === "chest") bsById[id] = await fetchAsset("blockstates/" + id + ".json"); }));
+    if (!assetReached) throw new Error("assets unreachable");
+
+    // 2. which model(s) each cell uses (neighbour-dependent properties and random variants resolved here)
+    const cellApplies = new Array(w * h * d).fill(null);
+    const modelNames = new Set();
+    for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) {
+      const n = cells[idx3(x, y, z)];
+      if (n === -1 || HIDDEN_IDS.test(names[n])) continue;
+      const id = names[n], bs = bsById[id];
+      if (!bs) { cellApplies[idx3(x, y, z)] = { n, applies: null }; continue; }
+      const p = deriveProps(id, props[n] || {}, x, y, z, info);
+      const applies = selectApplies(bs, p, hash(x + "," + y + "," + z));
+      applies.forEach(a => { if (a.model) modelNames.add(a.model.replace(/^minecraft:/, "")); });
+      cellApplies[idx3(x, y, z)] = { n, applies, p };
+    }
+    await Promise.all([...modelNames].map(m => loadModel(m)));
+
+    // 3. a "part" = model + rotation (shared between cells that look the same)
+    const modelResolved = new Map();
+    for (const m of modelNames) modelResolved.set(m, await loadModel(m));
+    const partCache = new Map();
+    function partsFor(entry) {
+      const id = names[entry.n];
+      const key = entry.n + "|" + JSON.stringify(entry.applies || "x") + "|" + JSON.stringify(entry.p || {});
+      if (partCache.has(key)) return partCache.get(key);
+      let parts = [];
+      const fallback = () => {
+        const sp = specialModel(id);
+        if (sp) return [{ mdl: sp, rx: 0, ry: 0, id }];
+        const col = colorFor(id) || "#ff00ff";
+        return [{ mdl: boxModel([{ from: [0, 0, 0], to: [16, 16, 16], tex: "$white", cull: true }]), rx: 0, ry: 0, flat: col, id }];
+      };
+      if (!entry.applies || !entry.applies.length) parts = fallback();
+      else {
+        parts = [];
+        let usedFallback = false;
+        entry.applies.forEach(a => {
+          const m = modelResolved.get(String(a.model).replace(/^minecraft:/, ""));
+          if (m && m.elements) parts.push({ mdl: m, rx: a.x || 0, ry: a.y || 0, uvlock: !!a.uvlock, id, tintHex: null });
+          else if (!usedFallback) { usedFallback = true; fallback().forEach(fp => parts.push(fp)); }
+        });
+      }
+      parts.forEach(pt => { pt.tintHex = pt.tintHex || tintFor(pt.id, 0); });
+      partCache.set(key, parts);
+      return parts;
+    }
+
+    // 4. gather every texture used, load them, build the atlas
+    const cellParts = new Array(w * h * d).fill(null);
+    const texPaths = new Set();
+    cellApplies.forEach((e, i) => {
+      if (!e) return;
+      const parts = partsFor(e);
+      cellParts[i] = parts;
+      parts.forEach(pt => { if (pt.flat) return; (pt.mdl.elements || []).forEach(el => Object.keys(el.faces || {}).forEach(f => { const t = resolveTexRef(el.faces[f].texture, pt.mdl.textures); if (t) texPaths.add(t); })); });
+    });
+    const images = new Map();
+    await Promise.all([...texPaths].map(async t => { images.set(t, await loadTexCanvas(t)); }));
+    const atlas = buildAtlas(THREE, images);
+
+    // 5. bake parts, work out which blocks hide their neighbours
+    const bakedSeen = new Set();
+    const occ = new Uint8Array(w * h * d);     // 1 = full opaque cube, 2 = full see-through cube (glass), 0 = otherwise
+    cellParts.forEach((parts, i) => {
+      if (!parts) return;
+      parts.forEach(pt => { if (!pt.quads) pt.quads = bakeDesc(pt, atlas); });
+      if (parts.length === 1) {
+        const pt = parts[0];
+        if (pt.full === undefined) pt.full = isFullCube(pt) ? (pt.quads.every(q => q.cls === "opaque") ? 1 : (pt.quads.some(q => q.cls === "translucent") ? 2 : 0)) : 0;
+        occ[i] = pt.full;
+      }
+    });
+
+    /* geometry for the layers yMin..yMax. Faces against blocks outside that range are kept (like looking at one slice). */
+    function geometry(yMin, yMax) {
+      const groups = { opaque: [], cutout: [], translucent: [] };
+      const buf = {};
+      ["opaque", "cutout", "translucent"].forEach(k => { buf[k] = { pos: [], uv: [], col: [], idx: [], n: 0 }; });
+      for (let y = yMin; y <= yMax; y++) for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) {
+        const i = idx3(x, y, z), parts = cellParts[i];
+        if (!parts) continue;
+        const n = cells[i];
+        parts.forEach(pt => pt.quads.forEach(q => {
+          if (q.cull >= 0) {
+            const dv = DIRV[FACES[q.cull]], nx = x + dv[0], ny = y + dv[1], nz = z + dv[2];
+            if (inB(nx, ny, nz) && ny >= yMin && ny <= yMax) {
+              const j = idx3(nx, ny, nz), o = occ[j];
+              if (o === 1) return;
+              if (o === 2 && q.cls === "translucent" && cells[j] === n) return;
+            }
+          }
+          const b = buf[q.cls], base = b.n;
+          for (let v = 0; v < 4; v++) {
+            b.pos.push(q.pos[v][0] + x, q.pos[v][1] + y, q.pos[v][2] + z);
+            b.uv.push(q.uv[v * 2], q.uv[v * 2 + 1]);
+            b.col.push(q.col[0], q.col[1], q.col[2]);
+          }
+          b.idx.push(base, base + 3, base + 2, base, base + 2, base + 1);
+          b.n += 4;
+        }));
+      }
+      const out = {};
+      Object.keys(buf).forEach(k => {
+        const b = buf[k];
+        if (!b.n) { out[k] = null; return; }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(b.pos), 3));
+        g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(b.uv), 2));
+        g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(b.col), 3));
+        g.setIndex(new THREE.BufferAttribute(b.n > 65535 ? new Uint32Array(b.idx) : new Uint16Array(b.idx), 1));
+        g.computeBoundingSphere();
+        out[k] = g;
+      });
+      return out;
+    }
+
+    // small picture of a block for the materials list
+    const swatchCache = new Map();
+    function swatch(id) {
+      if (swatchCache.has(id)) return swatchCache.get(id);
+      let url = null;
+      for (let i = 0; i < cellParts.length && !url; i++) {
+        const parts = cellParts[i];
+        if (!parts || names[cells[i]] !== id) continue;
+        const pt = parts[0];
+        if (pt.flat) { url = null; break; }
+        const m = pt.mdl;
+        const path = resolveTexRef("#particle", m.textures) || (m.elements && m.elements[0] && Object.keys(m.elements[0].faces).map(f => resolveTexRef(m.elements[0].faces[f].texture, m.textures)).find(Boolean));
+        const ti = path && atlas.info.get(path);
+        if (ti) {
+          try {
+            const c = document.createElement("canvas"); c.width = 16; c.height = 16;
+            c.getContext("2d").drawImage(atlas.canvas, ti.cx, ti.cy, 16, 16, 0, 0, 16, 16);
+            url = c.toDataURL();
+          } catch (e) { /* ignore */ }
+        }
+        break;
+      }
+      swatchCache.set(id, url);
+      return url;
+    }
+
+    return { atlas, geometry, swatch, dispose() { atlas.tex.dispose(); } };
   }
 
   /* --------------------------- parsing ---------------------------- */
@@ -369,6 +740,20 @@
     return JSON.parse(t);
   }
 
+  // "minecraft:oak_stairs[facing=east,half=top]" or { name, properties } -> { id, props }
+  function parseBlockSpec(v) {
+    const props = {};
+    if (v && typeof v === "object") {
+      const pr = v.properties || v.state || v.props || v.Properties || {};
+      Object.keys(pr).forEach(k => { props[k.toLowerCase()] = String(pr[k]).toLowerCase(); });
+      return { id: cleanName(v.name || v.id || v.block || v.Name || ""), props };
+    }
+    const str = String(v == null ? "" : v).trim();
+    const m = /\[(.*)\]\s*$/.exec(str);
+    if (m) m[1].split(",").forEach(pair => { const i = pair.indexOf("="); if (i > 0) props[pair.slice(0, i).trim().toLowerCase()] = pair.slice(i + 1).trim().toLowerCase(); });
+    return { id: cleanName(str), props };
+  }
+
   // Returns { title, w, h, d, cells: Int16Array (index into names, -1 = air), names: [], notes: [] }
   function parseBuild(text) {
     const raw = typeof text === "string" ? parseJsonLoose(text) : text;
@@ -379,14 +764,14 @@
     if (!Array.isArray(layersRaw) || !layersRaw.length) throw new Error("the build needs a \"layers\" list.");
 
     const notes = [];
-    const keyToIdx = {}, names = [];
+    const keyToIdx = {}, names = [], props = [], seen = {};
     Object.keys(palRaw).forEach(k => {
       if (k.length < 1) return;
-      const nm = cleanName(palRaw[k]);
-      if (!nm || nm === "air" || nm === "cave_air" || nm === "void_air") { keyToIdx[k] = -1; return; }
-      let idx = names.indexOf(nm);
-      if (idx === -1) { names.push(nm); idx = names.length - 1; }
-      keyToIdx[k] = idx;
+      const sp = parseBlockSpec(palRaw[k]);
+      if (!sp.id || sp.id === "air" || sp.id === "cave_air" || sp.id === "void_air") { keyToIdx[k] = -1; return; }
+      const sig = sp.id + "|" + Object.keys(sp.props).sort().map(x => x + "=" + sp.props[x]).join(",");
+      if (seen[sig] === undefined) { names.push(sp.id); props.push(sp.props); seen[sig] = names.length - 1; }
+      keyToIdx[k] = seen[sig];
     });
     const AIR_KEYS = { ".": 1, " ": 1, "_": 1 };
 
@@ -425,7 +810,7 @@
     if (!nonAir) throw new Error("the build has no blocks in it.");
 
     // Y is up. The first row of a layer is the FRONT of the build.
-    return { title: String(raw.title || raw.name || "Minecraft build").slice(0, 80), w, h, d, cells, names, notes };
+    return { title: String(raw.title || raw.name || "Minecraft build").slice(0, 80), w, h, d, cells, names, props, notes };
   }
 
   function looksLikeBuild(text) {
@@ -470,7 +855,6 @@
       yaw: 0.8, pitch: 0.5, dist: 20,
       target: new THREE.Vector3(w / 2, h / 2, d / 2),
       eye: new THREE.Vector3(w / 2, 1.6, d / 2),
-      textures: false,
       dirty: true, disposed: false
     };
 
@@ -486,9 +870,7 @@
     const bOut = iconBtn("fa-cubes", "Outside", "See the whole build from outside");
     const bIn = iconBtn("fa-door-open", "Inside", "Look around from inside the build");
     const bLay = iconBtn("fa-layer-group", "Layers", "View one layer at a time");
-    const bTex = iconBtn("fa-image", "Textures", "Show the real block textures");
-    bTex.classList.add("bv-tex"); bTex.disabled = true;
-    modes.append(bOut, bIn, bLay, bTex);
+    modes.append(bOut, bIn, bLay);
 
     const stage = el("div", "bv-stage");
     const canvas = el("canvas", "bv-canvas");
@@ -496,7 +878,8 @@
     canvas.setAttribute("aria-label", "3D view of " + spec.title);
     const tip = el("div", "bv-tip");
     const hint = el("div", "bv-hint");
-    stage.append(canvas, tip, hint);
+    const loading = el("div", "bv-loading", "Loading block models and textures...");
+    stage.append(canvas, tip, hint, loading);
 
     const layerBar = el("div", "bv-layers");
     const lPrev = iconBtn("fa-chevron-down", "", "Layer below");
@@ -548,109 +931,97 @@
     }
     const colorCache = names.map(nm => colorFor(nm) || "#ff00ff");
 
-    // ---------- materials ----------
+    // ---------- drawing ----------
+    // "ready": exact block models + real textures.  Until then (or if the download fails): plain coloured cubes.
     const dimMat = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthWrite: false });
     const flatSolid = new THREE.MeshLambertMaterial({ color: 0xffffff });
     const flatGlass = new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.4, depthWrite: false });
-    const SHADE = [0.6, 0.6, 1.0, 0.5, 0.8, 0.8];                 // +x -x +y -y +z -z, like the game's face lighting
-    const tex = { status: "loading", per: new Map(), swatch: new Map(), used: [], all: [] };   // per: block index -> 6 materials
-    const matCache = new Map();
-    let meshes = [];                  // current InstancedMeshes
-    let pickable = [];                // [{ mesh, items }]
+    const eng = { status: "loading", api: null, mats: null, cache: new Map() };
+    let meshes = [];                  // everything in the scene except grid and lights
+    let pickMeshes = [];              // meshes a tap/hover can hit (not the faded layers)
+    let flatPick = [];                // flat mode: [{ mesh, items }]
 
     function clearMeshes() {
-      meshes.forEach(m => { scene.remove(m); m.dispose && m.dispose(); });
-      meshes = []; pickable = [];
+      meshes.forEach(m => { scene.remove(m); if (m.isInstancedMesh) m.dispose(); });
+      meshes = []; pickMeshes = []; flatPick = [];
     }
 
-    function faceMaterial(canvas, tint, shade, glass, alpha) {
-      const key = canvas.__id + "|" + tint + "|" + shade + "|" + glass + "|" + alpha;
-      if (matCache.has(key)) return matCache.get(key);
-      if (!canvas.__tex) {
-        const t = new THREE.CanvasTexture(canvas);
-        t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
-        t.needsUpdate = true; canvas.__tex = t; tex.all.push(t);
-      }
-      const c = new THREE.Color(tint || "#ffffff"); c.multiplyScalar(shade);
-      const m = new THREE.MeshBasicMaterial({ map: canvas.__tex, color: c, transparent: !!glass, depthWrite: !glass, alphaTest: (!glass && alpha) ? 0.5 : 0 });
-      matCache.set(key, m); tex.all.push(m);
-      return m;
+    function geomFor(y0, y1) {                   // geometry for layers y0..y1, built once and kept
+      const k = y0 + "-" + y1;
+      if (!eng.cache.has(k)) eng.cache.set(k, eng.api.geometry(y0, y1));
+      return eng.cache.get(k);
     }
-
-    // Load the real textures for the blocks in this build, then redraw with them.
-    let canvasId = 0;
-    async function loadTextures() {
-      const specs = names.map(nm => faceSpec(nm));
-      const want = new Set();
-      specs.forEach(sp => { if (sp) ["top", "bottom", "side", "front", "overlay"].forEach(k => sp[k] && want.add(sp[k])); });
-      const loaded = {};
-      await Promise.all([...want].map(async t => { const c = await loadTexCanvas(t); if (c) { if (c.__id == null) c.__id = ++canvasId; loaded[t] = c; } }));
-      if (state.disposed) return;
-      let okBlocks = 0;
-      names.forEach((nm, i) => {
-        const sp = specs[i]; if (!sp) return;
-        const get = t => (t && loaded[t]) || null;
-        let side = get(sp.side), top = get(sp.top) || side, bottom = get(sp.bottom) || top || side, front = get(sp.front) || side;
-        if (!side && !top) return;
-        side = side || top;
-        if (sp.overlay && get(sp.overlay) && side) {                       // grass block: tint the green edge
-          const key = sp.side + "+" + sp.overlay;
-          const comp = loaded[key] || (loaded[key] = compositeOverlay(side, get(sp.overlay), sp.tintOverlay));
-          if (comp.__id == null) comp.__id = ++canvasId;
-          side = comp; front = comp;
-        }
-        const glass = !!sp.glass, alphaOf = c => c && (c.__alpha == null ? (c.__alpha = hasAlpha(c)) : c.__alpha);
-        const faceTint = k => sp.tintAll || (k === "top" ? sp.tintTop : null) || null;
-        const mat = (c, k, shade) => faceMaterial(c, faceTint(k), shade, glass || (alphaOf(c) && /glass|ice|water/.test(cleanName(nm))), alphaOf(c));
-        const six = [mat(side, "side", SHADE[0]), mat(side, "side", SHADE[1]), mat(top, "top", SHADE[2]), mat(bottom, "bottom", SHADE[3]), mat(side, "side", SHADE[4]), mat(front, "front", SHADE[5])];
-        six.transparentType = glass || /glass|ice\b|water/.test(cleanName(nm));
-        tex.per.set(i, six);
-        try { tex.swatch.set(i, (side || top).toDataURL()); } catch (e) { /* ignore */ }
-        okBlocks++;
+    function addSet(set, ghost) {
+      [["opaque", 1], ["cutout", 2], ["translucent", 4]].forEach(([k, order]) => {
+        const g = set[k]; if (!g) return;
+        const mesh = new THREE.Mesh(g, ghost ? eng.mats.ghost[k] : eng.mats[k]);
+        mesh.renderOrder = ghost ? 6 : order;
+        scene.add(mesh); meshes.push(mesh);
+        if (!ghost) pickMeshes.push(mesh);
       });
-      tex.status = okBlocks ? "ready" : "failed";
-      if (tex.status === "ready") { state.textures = true; bTex.disabled = false; bTex.classList.add("active"); }
-      else { bTex.disabled = true; bTex.title = "Couldn't load block textures (offline?). Showing plain colours."; bTex.lastChild.textContent = "No textures"; }
-      rebuild(); updateMaterials(); state.dirty = true;
     }
-
-    function rebuild() {
-      clearMeshes();
-      const useTex = state.textures && tex.status === "ready";
-      const groups = new Map();              // key -> { items, mats, order }
-      const put = (key, b, mats, order) => { let g = groups.get(key); if (!g) { g = { items: [], mats, order }; groups.set(key, g); } g.items.push(b); };
+    function rebuildModels() {
+      if (state.mode === "layers") {
+        if (state.below && state.layer > 0) addSet(geomFor(0, state.layer - 1), true);
+        addSet(geomFor(state.layer, state.layer), false);
+      } else addSet(geomFor(0, h - 1), false);
+    }
+    function rebuildFlat() {
+      const groups = { solid: [], glass: [], dim: [] };
       const add = (b, dim) => {
-        if (dim) return put("dim", b, dimMat, 4);
-        const six = useTex ? tex.per.get(b.n) : null;
-        if (six) return put("t" + b.n, b, six, six.transparentType ? 3 : 1);
-        return opacityFor(names[b.n]) < 1 ? put("glass", b, flatGlass, 2) : put("solid", b, flatSolid, 1);
+        if (dim) groups.dim.push(b);
+        else if (opacityFor(names[b.n]) < 1) groups.glass.push(b);
+        else groups.solid.push(b);
       };
       if (state.mode === "layers") {
         byLayer[state.layer].forEach(b => add(b, false));
         if (state.below) blocks.forEach(b => { if (b.y < state.layer) add(b, true); });
-      } else {
-        blocks.forEach(b => add(b, false));
-      }
+      } else blocks.forEach(b => add(b, false));
       const m4 = new THREE.Matrix4(), col = new THREE.Color();
-      groups.forEach((g, key) => {
-        const mesh = new THREE.InstancedMesh(geo, g.mats, g.items.length);
-        const flat = key === "dim" || key === "solid" || key === "glass";
-        g.items.forEach((b, i) => {
+      [["solid", flatSolid, 1], ["glass", flatGlass, 2], ["dim", dimMat, 3]].forEach(([key, mat, order]) => {
+        const items = groups[key];
+        if (!items.length) return;
+        const mesh = new THREE.InstancedMesh(geo, mat, items.length);
+        items.forEach((b, i) => {
           m4.makeTranslation(b.x + 0.5, b.y + 0.5, b.z + 0.5);
           mesh.setMatrixAt(i, m4);
-          if (flat) {                                   // plain-colour mode: small shade variation so single blocks read
-            col.set(colorCache[b.n]);
-            col.offsetHSL(0, 0, ((hash(b.x + "," + b.y + "," + b.z) % 1000) / 1000 - 0.5) * 0.05);
-            mesh.setColorAt(i, col);
-          }
+          col.set(colorCache[b.n]);
+          col.offsetHSL(0, 0, ((hash(b.x + "," + b.y + "," + b.z) % 1000) / 1000 - 0.5) * 0.05);
+          mesh.setColorAt(i, col);
         });
         mesh.instanceMatrix.needsUpdate = true;
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-        mesh.renderOrder = g.order;
+        mesh.renderOrder = order;
         scene.add(mesh); meshes.push(mesh);
-        if (key !== "dim") pickable.push({ mesh, items: g.items });
+        if (key !== "dim") flatPick.push({ mesh, items });
       });
+    }
+    function rebuild() {
+      clearMeshes();
+      if (eng.status === "ready") rebuildModels(); else rebuildFlat();
       state.dirty = true;
+    }
+
+    async function startEngine() {
+      try {
+        const api = await loadEngine(spec, THREE);
+        if (state.disposed) { api.dispose(); return; }
+        const map = api.atlas.tex;
+        const mk = o => new THREE.MeshBasicMaterial(Object.assign({ map, vertexColors: true }, o));
+        eng.api = api;
+        eng.mats = {
+          opaque: mk({}),
+          cutout: mk({ alphaTest: 0.5 }),
+          translucent: mk({ transparent: true, depthWrite: false }),
+          ghost: { opaque: mk({ transparent: true, opacity: 0.2, depthWrite: false }), cutout: mk({ transparent: true, opacity: 0.2, depthWrite: false, alphaTest: 0.1 }), translucent: mk({ transparent: true, opacity: 0.12, depthWrite: false }) }
+        };
+        eng.status = "ready";
+      } catch (e) {
+        eng.status = "failed";
+        root.appendChild(el("div", "bv-note", "Couldn't download the Minecraft block models, so this is a simple colour preview. Check your connection and ask again."));
+      }
+      loading.remove();
+      rebuild(); updateMaterials(); state.dirty = true;
     }
 
     // ---- ground grid + outline ----
@@ -794,8 +1165,19 @@
       const r = canvas.getBoundingClientRect();
       const ndc = new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -(((e.clientY - r.top) / r.height) * 2 - 1));
       ray.setFromCamera(ndc, camera);
+      if (eng.status === "ready") {
+        const hit = ray.intersectObjects(pickMeshes, false)[0];
+        if (!hit) return null;
+        const nm = hit.face.normal;
+        for (const sgn of [-1, 1]) {                       // the block just behind the face we hit
+          const x = Math.floor(hit.point.x + sgn * nm.x * 0.01), y = Math.floor(hit.point.y + sgn * nm.y * 0.01), z = Math.floor(hit.point.z + sgn * nm.z * 0.01);
+          const n = at(x, y, z);
+          if (n !== -1) return { x, y, z, n };
+        }
+        return null;
+      }
       let best = null;
-      pickable.forEach(g => {
+      flatPick.forEach(g => {
         const hit = ray.intersectObject(g.mesh, false)[0];
         if (hit && hit.instanceId != null && (!best || hit.distance < best.distance)) best = { distance: hit.distance, b: g.items[hit.instanceId] };
       });
@@ -804,7 +1186,8 @@
     function showTip(b, e) {
       if (!b) { tip.classList.remove("on"); return; }
       const r = stage.getBoundingClientRect();
-      tip.textContent = `${prettyName(names[b.n])}  ·  x${b.x + 1} y${b.y + 1} z${b.z + 1}`;
+      const st = spec.props[b.n] || {}, stText = Object.keys(st).map(k => k + "=" + st[k]).join(", ");
+      tip.textContent = `${prettyName(names[b.n])}${stText ? " (" + stText + ")" : ""}  ·  x${b.x + 1} y${b.y + 1} z${b.z + 1}`;
       tip.style.left = Math.min(r.width - 10, Math.max(10, e.clientX - r.left)) + "px";
       tip.style.top = Math.max(8, e.clientY - r.top - 34) + "px";
       tip.classList.add("on");
@@ -819,23 +1202,26 @@
 
     // ---- materials list ----
     function updateMaterials() {
-      const counts = new Array(names.length).fill(0);
+      const counts = new Map();
       let total = 0;
       for (let y = 0; y < h; y++) {
         if (state.mode === "layers" && y !== state.layer) continue;
-        for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) { const n = cells[idx3(x, y, z)]; if (n !== -1) { counts[n]++; total++; } }
+        for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) {
+          const n = cells[idx3(x, y, z)];
+          if (n !== -1) { counts.set(names[n], (counts.get(names[n]) || 0) + 1); total++; }
+        }
       }
       matsSum.textContent = (state.mode === "layers" ? `Blocks in layer ${state.layer + 1}` : "Materials") + ` (${total} blocks)`;
       matsList.textContent = "";
-      names.map((nm, i) => ({ nm, i, c: counts[i] })).filter(r => r.c > 0).sort((a, b) => b.c - a.c).forEach(r => {
+      [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([id, c]) => {
         const row = el("div", "bv-mat");
-        const sw = el("span", "bv-swatch"); sw.style.background = colorCache[r.i];
-        if (state.textures && tex.swatch.get(r.i)) { sw.style.backgroundImage = `url(${tex.swatch.get(r.i)})`; sw.style.backgroundSize = "cover"; sw.style.imageRendering = "pixelated"; }
-        const label = el("span", "bv-mat-name", prettyName(nm(r.i)));
-        const cnt = el("span", "bv-mat-count", `${r.c}` + (r.c >= 64 ? ` (${Math.floor(r.c / 64)} st + ${r.c % 64})` : ""));
+        const sw = el("span", "bv-swatch"); sw.style.background = colorFor(id) || "#888";
+        const img = eng.status === "ready" ? eng.api.swatch(id) : null;
+        if (img) { sw.style.backgroundImage = `url(${img})`; sw.style.backgroundSize = "cover"; sw.style.imageRendering = "pixelated"; }
+        const label = el("span", "bv-mat-name", prettyName(id));
+        const cnt = el("span", "bv-mat-count", `${c}` + (c >= 64 ? ` (${Math.floor(c / 64)} st + ${c % 64})` : ""));
         row.append(sw, label, cnt); matsList.appendChild(row);
       });
-      function nm(i) { return names[i]; }
     }
 
     // ---- UI wiring ----
@@ -890,7 +1276,10 @@
     }
     function dispose() {
       state.disposed = true;
-      clearMeshes(); geo.dispose(); flatSolid.dispose(); flatGlass.dispose(); dimMat.dispose(); tex.all.forEach(t => t.dispose && t.dispose());
+      clearMeshes(); geo.dispose(); flatSolid.dispose(); flatGlass.dispose(); dimMat.dispose();
+      eng.cache.forEach(set => Object.keys(set).forEach(k => set[k] && set[k].dispose()));
+      if (eng.mats) { ["opaque", "cutout", "translucent"].forEach(k => eng.mats[k].dispose()); Object.keys(eng.mats.ghost).forEach(k => eng.mats.ghost[k].dispose()); }
+      if (eng.api) eng.api.dispose();
       renderer.dispose();
       try { renderer.forceContextLoss(); } catch (e) { /* ignore */ }
       if (ro) ro.disconnect();
@@ -903,15 +1292,9 @@
     const mo = new MutationObserver(() => { grid.material.color && grid.material.color.set(document.body.classList.contains("light") ? 0x888888 : 0x555555); state.dirty = true; })
       .observe(document.body, { attributes: true, attributeFilter: ["class"] });
 
-    bTex.addEventListener("click", () => {
-      if (tex.status !== "ready") return;
-      state.textures = !state.textures;
-      bTex.classList.toggle("active", state.textures);
-      rebuild(); updateMaterials();
-    });
     setMode("outside");
     resize();
-    loadTextures().catch(() => { tex.status = "failed"; bTex.disabled = true; bTex.lastChild.textContent = "No textures"; });
+    startEngine();
     requestAnimationFrame(frame);
     return root;
   }
@@ -944,7 +1327,7 @@
     try {
       const s = parseBuild(text);
       const counts = {};
-      s.cells.forEach(n => { if (n !== -1) counts[s.names[n]] = (counts[s.names[n]] || 0) + 1; });
+      s.cells.forEach(n => { if (n !== -1) counts[s.names[n]] = (counts[s.names[n]] || 0) + 1; });   // grouped by block id
       const lines = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map(k => `- ${prettyName(k)}: ${counts[k]}`);
       return `**${s.title}** (${s.w}×${s.h}×${s.d} blocks)\n\nMaterials:\n${lines.join("\n")}`;
     } catch (e) { return "[Minecraft build]"; }
