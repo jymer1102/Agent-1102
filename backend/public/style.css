@@ -631,4 +631,9 @@ header .header-btns { grid-area:right; justify-self:end; flex-wrap:wrap; justify
 .bv-note { margin-top:0.5rem; font-size:0.78rem; color:var(--text-muted); }
 @media (max-width:600px) { .bv-stage { height:340px; } .bv-btn { padding:0.4rem 0.65rem; } }
 .bv-btn:disabled { opacity:0.5; cursor:default; }
-.bv-tex { margin-left:auto; }
+
+.bv-loading {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none;
+  font-size:0.85rem; color:rgba(255,255,255,0.8); background:rgba(0,0,0,0.25); z-index:2;
+}
+.light .bv-loading { color:rgba(10,10,12,0.75); background:rgba(255,255,255,0.35); }
