@@ -223,12 +223,22 @@ header:hover, #input-area:hover, #sidebar:hover { border-color:var(--border-hove
 /* ============================================================
    CARET GLOW: soft blue halo that follows the typing caret (js/glow.js)
    ============================================================ */
-#caret-glow {
-  position:fixed; left:0; top:0; width:2px; height:20px; border-radius:2px;
-  pointer-events:none; z-index:10000; opacity:0; will-change:transform;
-  box-shadow:0 0 6px 1px var(--accent-bright), 0 0 14px 3px var(--accent-glow), 0 0 28px 6px var(--accent-glow);
+/* The glow is an inline zero-width element inside an invisible overlay copy of the field (see js/glow.js) */
+.caret-glow-on { caret-color:transparent !important; }
+.caret-overlay {
+  position:absolute; pointer-events:none; overflow:hidden; color:transparent;
+  z-index:2; margin:0; word-wrap:break-word; overflow-wrap:break-word; background:none; border-style:solid;
 }
-#caret-glow.on { opacity:1; animation:caretGlowPulse 1.1s ease-in-out infinite; }
+.caret-overlay-text { color:transparent; min-width:0; }
+.caret-overlay-bar {
+  display:inline-block; position:relative; width:0; height:1em; vertical-align:text-bottom;
+}
+.caret-overlay-bar::after {
+  content:''; position:absolute; left:-1px; top:-0.1em; width:2px; height:1.2em; border-radius:2px;
+  background:var(--accent-bright);
+  box-shadow:0 0 6px 1px var(--accent-bright), 0 0 14px 3px var(--accent-glow), 0 0 28px 6px var(--accent-glow);
+  animation:caretGlowPulse 1.1s ease-in-out infinite;
+}
 @keyframes caretGlowPulse { 0%,100% { filter:brightness(1); } 50% { filter:brightness(0.55); } }
 
 /* ============================================================
