@@ -318,12 +318,12 @@
   // folder, stale cache), load it now instead of showing the drawing data as a code block.
   let mathvizLoading = null;
   function ensureMathViz() {
-    if (window.Agent1102MathViz) return Promise.resolve(window.Agent1102MathViz);
+    if (window.agent1102MathViz) return Promise.resolve(window.agent1102MathViz);
     if (!mathvizLoading) {
       mathvizLoading = new Promise((resolve, reject) => {
         const sc = document.createElement("script");
         sc.src = new URL("js/mathviz.js?v=" + Date.now(), document.baseURI).href;
-        sc.onload = () => (window.Agent1102MathViz ? resolve(window.Agent1102MathViz) : reject(new Error("mathviz.js ran but did not define the drawer")));
+        sc.onload = () => (window.agent1102MathViz ? resolve(window.agent1102MathViz) : reject(new Error("mathviz.js ran but did not define the drawer")));
         sc.onerror = () => reject(new Error("js/mathviz.js could not be loaded"));
         document.head.appendChild(sc);
       });
@@ -855,16 +855,16 @@
       const m = codeEl && /(?:^|\s)language-(\S+)/.exec(codeEl.className);
       const lang = m ? m[1] : "";
 
-      const study = window.Agent1102Study;
+      const study = window.agent1102Study;
       if (study && lang.toLowerCase() === "quiz") {
         pre.replaceWith(study.buildQuiz(text));
       } else if (study && lang.toLowerCase() === "flashcards") {
         pre.replaceWith(study.buildFlashcards(text));
-      } else if (!window.Agent1102MathViz && MATH_LANGS.includes(lang.toLowerCase())) {
+      } else if (!window.agent1102MathViz && MATH_LANGS.includes(lang.toLowerCase())) {
         pre.replaceWith(lazyMathBlock(text));
-      } else if (window.Agent1102MathViz && (MATH_LANGS.includes(lang.toLowerCase()) ||
-                 (["", "json", "graph", "plot", "geometry", "numberline", "math", "desmos"].includes(lang.toLowerCase()) && window.Agent1102MathViz.looksLikeSpec(text)))) {
-        pre.replaceWith(window.Agent1102MathViz.build(text));
+      } else if (window.agent1102MathViz && (MATH_LANGS.includes(lang.toLowerCase()) ||
+                 (["", "json", "graph", "plot", "geometry", "numberline", "math", "desmos"].includes(lang.toLowerCase()) && window.agent1102MathViz.looksLikeSpec(text)))) {
+        pre.replaceWith(window.agent1102MathViz.build(text));
       } else if (CHART_LANGS.includes(lang.toLowerCase())) {
         const block = buildChartBlock(text);
         if (block._entry) pending.push(block._entry);
@@ -875,11 +875,11 @@
     });
 
     // A drawing spec the AI forgot to put in a code block (bare JSON in a paragraph) is still drawn
-    if (window.Agent1102MathViz) {
+    if (window.agent1102MathViz) {
       root.querySelectorAll("p").forEach(p => {
         const t = p.textContent.trim();
-        if (t.length > 30 && t[0] === "{" && t[t.length - 1] === "}" && window.Agent1102MathViz.looksLikeSpec(t)) {
-          p.replaceWith(window.Agent1102MathViz.build(t));
+        if (t.length > 30 && t[0] === "{" && t[t.length - 1] === "}" && window.agent1102MathViz.looksLikeSpec(t)) {
+          p.replaceWith(window.agent1102MathViz.build(t));
         }
       });
     }
@@ -954,13 +954,13 @@
 
   // Chart blocks are JSON; in copied / downloaded text they become a readable table instead
   function responseToText(md) {
-    const study = window.Agent1102Study;
+    const study = window.agent1102Study;
     if (study) {
       md = String(md)
         .replace(/```quiz[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.quizToText(body) || whole)
         .replace(/```flashcards[^\n]*\n([\s\S]*?)```/gi, (whole, body) => study.cardsToText(body) || whole);
     }
-    md = String(md).replace(/```(?:mathviz|mathgraph|math-visual)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => (window.Agent1102MathViz ? window.Agent1102MathViz.toText(body) : "[Math visual]"));
+    md = String(md).replace(/```(?:mathviz|mathgraph|math-visual)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => (window.agent1102MathViz ? window.agent1102MathViz.toText(body) : "[Math visual]"));
     return String(md).replace(/```(?:chart|chartjs|chart\.js|chart-json)[^\n]*\n([\s\S]*?)```/gi, (whole, body) => {
       try {
         const spec = normalizeChartSpec(JSON.parse(body));
@@ -1576,7 +1576,7 @@
 
   window.addGreeting = function addGreeting() {
     const name = localStorage.getItem("agent1102_name");
-    const greeting = `Hi${name ? ` ${name}` : ""}! I'm Agent1102, your personal AI assistant by jymer1102. How can I help you?`;
+    const greeting = `Hi${name ? ` ${name}` : ""}! I'm agent1102, your personal AI assistant by jymer1102. How can I help you?`;
     window.addMsg("ai", greeting);
     if (typeof history !== "undefined" && Array.isArray(history)) {
       history.push({ role: "assistant", content: greeting });
@@ -1584,7 +1584,7 @@
   };
 
   // Exposed for testing / other scripts
-  window.Agent1102Render = {
+  window.agent1102Render = {
     normalizeChartSpec, responseToText, chunkText, parseImageRequest, parseImageEditRequest,
     parseAttachedFiles, historyTitle, escapeHtml, mathToSpeech, speakableText, extractMath, fileChipIcon,
     buildLinkCard,
