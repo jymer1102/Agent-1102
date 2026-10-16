@@ -153,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pendingFiles.forEach((f, i) => {
       const chip = document.createElement("div");
       chip.className = "attach-chip";
-      chip.innerHTML = `<i class="fa-solid ${Agent1102Render.fileChipIcon ? Agent1102Render.fileChipIcon(f.name) : "fa-file-code"}"></i>`;
+      chip.innerHTML = `<i class="fa-solid ${agent1102Render.fileChipIcon ? agent1102Render.fileChipIcon(f.name) : "fa-file-code"}"></i>`;
       const name = document.createElement("span");
       name.className = "attach-name"; name.textContent = f.name;
       const meta = document.createElement("span");
@@ -548,13 +548,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function messagesForServer() {
     return history.map(m => {
       if (m.role === "assistant" && typeof m.content === "string") {
-        if (m.content === Agent1102Commands.helpMarkdown()) return { role: "assistant", content: "[Agent1102 showed the list of slash commands]" };
+        if (m.content === agent1102Commands.helpMarkdown()) return { role: "assistant", content: "[agent1102 showed the list of slash commands]" };
         // quizzes / flashcards travel as plain text so follow-ups like "explain question 3" work
-        if (/```(?:quiz|flashcards)\b/i.test(m.content)) return { role: "assistant", content: Agent1102Render.responseToText(m.content) };
+        if (/```(?:quiz|flashcards)\b/i.test(m.content)) return { role: "assistant", content: agent1102Render.responseToText(m.content) };
         const g = m.content.match(GENERATED_IMG);
-        if (g) return { role: "assistant", content: `[Agent1102 generated an image for the prompt: "${g[1]}"]` };
+        if (g) return { role: "assistant", content: `[agent1102 generated an image for the prompt: "${g[1]}"]` };
         const v = m.content.match(GENERATED_VIDEO);
-        if (v) return { role: "assistant", content: `[Agent1102 generated a video for the prompt: "${v[1]}"]` };
+        if (v) return { role: "assistant", content: `[agent1102 generated a video for the prompt: "${v[1]}"]` };
       }
       return m;
     });
@@ -695,11 +695,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // The recent conversation as plain text, so "/quiz" on its own can quiz what was just discussed
   function studyContext(list) {
-    const helpMd = Agent1102Commands.helpMarkdown();
+    const helpMd = agent1102Commands.helpMarkdown();
     return list.filter(m => {
       if (m.role === "assistant") return m.content !== helpMd;                       // skip the command list
       const t = typeof m.content === "string" ? m.content.trim() : "";
-      return !(t.startsWith("/") && Agent1102Commands.parseCommand(t));               // skip bare slash commands
+      return !(t.startsWith("/") && agent1102Commands.parseCommand(t));               // skip bare slash commands
     }).slice(-6).map(m => {
       let t = typeof m.content === "string" ? m.content
         : Array.isArray(m.content) ? m.content.filter(p => p && p.type === "text").map(p => p.text).join(" ") : "";
@@ -715,7 +715,7 @@ document.addEventListener("DOMContentLoaded", () => {
       history.push({ role: "user", content: typed });
       input.value = "";
     }
-    const md = Agent1102Commands.helpMarkdown();
+    const md = agent1102Commands.helpMarkdown();
     addMsg("ai", md);
     history.push({ role: "assistant", content: md });
     if (typeof saveCurrentChat === "function") saveCurrentChat();
@@ -878,11 +878,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const hasImg = Array.isArray(last.content) && last.content.some(p => p && p.type === "image_url");
 
       {
-        const typedPart = Agent1102Render.parseAttachedFiles(text).rest;
-        if (!hasImg && Agent1102Commands.isHelp(typedPart)) { await runHelp(typedPart, { skipUser: true }); return; }
-        const graphReq = !hasImg && !/<attached_file/.test(text) ? Agent1102Commands.parseGraph(typedPart) : null;
+        const typedPart = agent1102Render.parseAttachedFiles(text).rest;
+        if (!hasImg && agent1102Commands.isHelp(typedPart)) { await runHelp(typedPart, { skipUser: true }); return; }
+        const graphReq = !hasImg && !/<attached_file/.test(text) ? agent1102Commands.parseGraph(typedPart) : null;
         if (graphReq) { await runGraph(typedPart, graphReq.request, { skipUser: true }); return; }
-        const study = Agent1102Commands.parseStudy(typedPart);
+        const study = agent1102Commands.parseStudy(typedPart);
         if (study) {
           const imgs = hasImg ? last.content.filter(p => p && p.type === "image_url").map(p => p.image_url.url) : [];
           await runStudy(study, { skipUser: true, material: materialFromMessage(text), images: imgs });
@@ -891,9 +891,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (!hasImg && !/<attached_file/.test(text)) {
-        const editReq = Agent1102Render.parseImageEditRequest(text);
+        const editReq = agent1102Render.parseImageEditRequest(text);
         if (editReq) { await editImage(text, editReq.prompt, null, { skipUser: true }); return; }
-        const imgReq = Agent1102Render.parseImageRequest(text);
+        const imgReq = agent1102Render.parseImageRequest(text);
         if (imgReq) { await generateImage(text, imgReq.prompt, { skipUser: true }); return; }
       }
       await requestReply(hasImg ? "Looking at your image..." : "Thinking...");
@@ -915,10 +915,10 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.disabled = true;
     try {
       // 0) Slash commands: /help and the study modes (/learn, /quiz, /flashcards)
-      if (!hasImage && !files.length && Agent1102Commands.isHelp(typed)) { await runHelp(typed); return; }
-      const graphReq = !hasImage && !files.length ? Agent1102Commands.parseGraph(typed) : null;
+      if (!hasImage && !files.length && agent1102Commands.isHelp(typed)) { await runHelp(typed); return; }
+      const graphReq = !hasImage && !files.length ? agent1102Commands.parseGraph(typed) : null;
       if (graphReq) { await runGraph(typed, graphReq.request); return; }
-      const study = Agent1102Commands.parseStudy(typed);
+      const study = agent1102Commands.parseStudy(typed);
       if (study) {
         await runStudy(study, {
           modelText: withFileBlocks(files, typed),
@@ -930,13 +930,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 1) Is the user asking for an image to be created or an existing one edited?
       if (!hasImage && !files.length) {
-        const editReq = Agent1102Render.parseImageEditRequest(typed);
+        const editReq = agent1102Render.parseImageEditRequest(typed);
         if (editReq) { await editImage(typed, editReq.prompt, null); return; }
-        const req = Agent1102Render.parseImageRequest(typed);
+        const req = agent1102Render.parseImageRequest(typed);
         if (req) { await generateImage(typed, req.prompt); return; }
       } else if (hasImage && images.length === 1 && !files.length) {
         // An image is attached: "/edit ..." applies the edit to it directly.
-        const editReq = Agent1102Render.parseImageEditRequest(typed);
+        const editReq = agent1102Render.parseImageEditRequest(typed);
         if (editReq) { await editImage(typed, editReq.prompt, images[0]); return; }
       }
 
