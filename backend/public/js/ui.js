@@ -78,7 +78,7 @@
     // request below is async.
     const chatId = currentChatId, chatHistory = history;
     await maybeUpdateTitle();
-    const title = (chatId === currentChatId && currentChatTitle) || Agent1102Render.historyTitle(firstUserMsg);
+    const title = (chatId === currentChatId && currentChatTitle) || agent1102Render.historyTitle(firstUserMsg);
     await fetch(`${BACKEND_URL}/chats`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${userToken}` },
@@ -97,7 +97,7 @@
   function renderSidebar(chats) {
     sidebarList.innerHTML = chats.length === 0
       ? `<p style="padding:1rem;color:var(--text-muted);font-size:0.9rem">No saved chats yet</p>`
-      : chats.map(c => `<div class="history-item" data-id="${Agent1102Render.escapeHtml(c.id)}"><span class="history-item-title">${Agent1102Render.escapeHtml(c.title)}</span><button class="delete-chat-btn" data-id="${Agent1102Render.escapeHtml(c.id)}" title="Delete chat"><i class="fa-solid fa-xmark"></i></button></div>`).join("");
+      : chats.map(c => `<div class="history-item" data-id="${agent1102Render.escapeHtml(c.id)}"><span class="history-item-title">${agent1102Render.escapeHtml(c.title)}</span><button class="delete-chat-btn" data-id="${agent1102Render.escapeHtml(c.id)}" title="Delete chat"><i class="fa-solid fa-xmark"></i></button></div>`).join("");
     sidebarList.querySelectorAll(".history-item-title").forEach(el => {
       el.addEventListener("click", () => {
         const c = chats.find(x => x.id === el.closest(".history-item").dataset.id);
