@@ -3,8 +3,8 @@
 //  number lines and fraction models, drawn as crisp SVG.
 //
 //  The AI writes a ```mathviz block containing ONE JSON object; render.js hands
-//  it to Agent1102MathViz.build(). Study quizzes/flashcards can also carry a
-//  "visual" object which is drawn with Agent1102MathViz.buildInline().
+//  it to agent1102MathViz.build(). Study quizzes/flashcards can also carry a
+//  "visual" object which is drawn with agent1102MathViz.buildInline().
 //
 //  Nothing here uses eval(): expressions like "x^2 - 4" or "sin(2x)/x" go
 //  through a small parser of its own. All text and colours from the AI are
@@ -773,5 +773,5 @@
     return ["functions", "inequalities", "areas", "parametric", "polar", "intervals", "arcs", "polygons", "circles", "angles"].some(k => Array.isArray(o[k]));
   }
 
-  window.Agent1102MathViz = { build, buildInline, toText, compile, looksLikeSpec, parseLoose, _svgFor: svgFor };
+  window.agent1102MathViz = { build, buildInline, toText, compile, looksLikeSpec, parseLoose, _svgFor: svgFor };
 })();
