@@ -192,5 +192,5 @@
     }
   });
 
-  window.Agent1102Commands = { COMMANDS, parseCommand, parseStudy, parseGraph, isHelp, helpMarkdown };
+  window.agent1102Commands = { COMMANDS, parseCommand, parseStudy, parseGraph, isHelp, helpMarkdown };
 })();
