@@ -2093,7 +2093,7 @@
 
             this.highScore = ['10', '11', ''].concat(highScoreStr.split(''));
 
-            // --- AGENT1102 HIGH SCORE SYNC ---
+            // --- agent1102 HIGH SCORE SYNC ---
             // Saves to the trex_highscores table via the backend (it only
             // overwrites when the score beats the saved one).
             const token = localStorage.getItem("agent1102_token");
@@ -2113,10 +2113,10 @@
                         }
                         return response.json();
                     })
-                    .then(data => console.log("Agent1102 Sync:", data.message))
+                    .then(data => console.log("agent1102 Sync:", data.message))
                     .catch(err => console.error("Score sync failed:", err));
             } else {
-                console.log("User not logged into Agent1102, score not saved.");
+                console.log("User not logged into agent1102, score not saved.");
             }
         },
 
@@ -2740,10 +2740,10 @@ document.addEventListener('DOMContentLoaded', onDocumentLoad);
 
 
 // ==========================================
-// AGENT1102 SYNC: DYNAMIC DAY/NIGHT CYCLE
+// agent1102 SYNC: DYNAMIC DAY/NIGHT CYCLE
 // ==========================================
 (function enableNightMode() {
-    console.log("Agent1102 Sync: Day/Night Cycle Engine Loaded.");
+    console.log("agent1102 Sync: Day/Night Cycle Engine Loaded.");
 
     setInterval(function() {
         var isDark = document.body.classList.contains('inverted');
