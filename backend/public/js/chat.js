@@ -548,13 +548,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function messagesForServer() {
     return history.map(m => {
       if (m.role === "assistant" && typeof m.content === "string") {
-        if (m.content === Agent1102Commands.helpMarkdown()) return { role: "assistant", content: "[Agent 1102 showed the list of slash commands]" };
+        if (m.content === Agent1102Commands.helpMarkdown()) return { role: "assistant", content: "[Agent1102 showed the list of slash commands]" };
         // quizzes / flashcards travel as plain text so follow-ups like "explain question 3" work
         if (/```(?:quiz|flashcards)\b/i.test(m.content)) return { role: "assistant", content: Agent1102Render.responseToText(m.content) };
         const g = m.content.match(GENERATED_IMG);
-        if (g) return { role: "assistant", content: `[Agent 1102 generated an image for the prompt: "${g[1]}"]` };
+        if (g) return { role: "assistant", content: `[Agent1102 generated an image for the prompt: "${g[1]}"]` };
         const v = m.content.match(GENERATED_VIDEO);
-        if (v) return { role: "assistant", content: `[Agent 1102 generated a video for the prompt: "${v[1]}"]` };
+        if (v) return { role: "assistant", content: `[Agent1102 generated a video for the prompt: "${v[1]}"]` };
       }
       return m;
     });
