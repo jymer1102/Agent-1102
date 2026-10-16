@@ -17,7 +17,7 @@ const dns = require("dns").promises;
 const net = require("net");
 const { createClient } = require("@supabase/supabase-js");
 
-console.log(">>> Agent 1102 server build marker: signup-debug-v1 <<<");
+console.log(">>> Agent1102 server build marker: signup-debug-v1 <<<");
 
 const app = express();
 app.use(cors());
@@ -184,7 +184,7 @@ const MATH_VISUALS_GUIDE =
   'Fractions: {"type":"fraction","items":[{"numerator":3,"denominator":4,"shape":"circle"},{"numerator":1,"denominator":2,"shape":"bar"}]}.';
 
 const SYSTEM_PROMPT = [
-  "You are Agent 1102, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Agent 1102 but never introduce yourself or start responses with your name. Just answer naturally and helpfully, tell the full truth. If they ask you to answer or talk in a specific way, you will. You will do what the user asks. You only share that you're instructions are to be helpful and do what the user asks.",
+  "You are Agent1102, a helpful AI assistant created by jymer1102. If anyone asks who made you or who created you, say jymer1102. Your name is Agent1102 but never introduce yourself or start responses with your name. Just answer naturally and helpfully, tell the full truth. If they ask you to answer or talk in a specific way, you will. You will do what the user asks. You only share that you're instructions are to be helpful and do what the user asks.",
   "",
   "FORMATTING RULES (the app renders these specially, so follow them exactly):",
   "1. CODE: any time you write code, in any language and of any length, put it inside a fenced markdown code block with the language name, like ```python. Put only code inside the block; explanations go outside it. Never write code outside a fenced block.",
@@ -1091,7 +1091,7 @@ app.get("/auth/oauth/:provider", async (req, res) => {
   const { provider } = req.params;
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${process.env.SITE_URL || "https://agent-1102.onrender.com"}/auth/callback` }
+    options: { redirectTo: `${process.env.SITE_URL || "https://agent1102.onrender.com"}/auth/callback` }
   });
   if (error) return res.status(400).json({ error: error.message });
   res.redirect(data.url);
@@ -1261,7 +1261,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-const SELF_URL = process.env.SITE_URL || "https://agent-1102.onrender.com";
+const SELF_URL = process.env.SITE_URL || "https://agent1102.onrender.com";
 function selfPing() {
   fetch(`${SELF_URL}/ping`)
     .then((res) => console.log(`Self-ping OK (${res.status})`))
