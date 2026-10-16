@@ -17,7 +17,7 @@ const dns = require("dns").promises;
 const net = require("net");
 const { createClient } = require("@supabase/supabase-js");
 
-console.log(">>> Agent1102 server build marker: signup-debug-v1 <<<");
+console.log(">>> agent1102 server build marker: signup-debug-v1 <<<");
 
 const app = express();
 app.use(cors());
@@ -561,7 +561,7 @@ function getMathviz() {
     const sandbox = { console, Math, document: { body: { classList }, documentElement: { classList }, createElement: node } };
     sandbox.window = sandbox;
     vm.runInNewContext(code, sandbox, { timeout: 3000 });
-    mathvizModule = sandbox.Agent1102MathViz && sandbox.Agent1102MathViz._svgFor ? sandbox.Agent1102MathViz : false;
+    mathvizModule = sandbox.agent1102MathViz && sandbox.agent1102MathViz._svgFor ? sandbox.agent1102MathViz : false;
   } catch (e) {
     console.error("mathviz checker unavailable:", e.message);
     mathvizModule = false;
@@ -728,7 +728,7 @@ async function fetchPageHtml(startUrl) {
     const r = await fetch(u, {
       redirect: "manual",
       signal: AbortSignal.timeout(6000),
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; Agent1102LinkPreview/1.0)", "Accept": "text/html,application/xhtml+xml" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; agent1102LinkPreview/1.0)", "Accept": "text/html,application/xhtml+xml" },
     });
     if (r.status >= 300 && r.status < 400 && r.headers.get("location")) { u = new URL(r.headers.get("location"), u); continue; }
     if (!r.ok) throw new Error("status " + r.status);
