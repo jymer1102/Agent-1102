@@ -1576,7 +1576,7 @@
 
   window.addGreeting = function addGreeting() {
     const name = localStorage.getItem("agent1102_name");
-    const greeting = `Hi${name ? ` ${name}` : ""}! I'm Agent 1102, your personal AI assistant by jymer1102. How can I help you?`;
+    const greeting = `Hi${name ? ` ${name}` : ""}! I'm Agent1102, your personal AI assistant by jymer1102. How can I help you?`;
     window.addMsg("ai", greeting);
     if (typeof history !== "undefined" && Array.isArray(history)) {
       history.push({ role: "assistant", content: greeting });
