@@ -1,6 +1,6 @@
 <div align="center">
 
-# Agent 1102
+# agent1102
 
 ![README Banner](backend/public/images/favicon/favicon.png)
 
