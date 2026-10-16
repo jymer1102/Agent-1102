@@ -11117,14 +11117,14 @@ var finishState = (function(){
 // Game Over state
 // (state when player has lost last life)
 
-// --- AGENT 1102 HIGH SCORE SYNC ---
-// Sends the finished run's score to the player's Agent 1102 account (one request per game).
+// --- AGENT1102 HIGH SCORE SYNC ---
+// Sends the finished run's score to the player's Agent1102 account (one request per game).
 // The server only keeps it if it beats their saved Pac-Man high score.
 var submitScoreToAgent1102 = function(score) {
     var token;
     try { token = localStorage.getItem("agent1102_token"); } catch (e) { return; }
     if (!token || practiceMode || !(score > 0)) return;
-    var BACKEND_URL = "https://agent-1102.onrender.com";
+    var BACKEND_URL = "https://agent1102.onrender.com";
     fetch(BACKEND_URL + "/pacman-score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -11134,8 +11134,8 @@ var submitScoreToAgent1102 = function(score) {
         if (!response.ok) throw new Error("Server returned a " + response.status + " error.");
         return response.json();
     })
-    .then(function(data) { console.log("Agent 1102 Sync:", data.message); })
-    .catch(function(err) { console.warn("Agent 1102 Sync failed:", err); });
+    .then(function(data) { console.log("Agent1102 Sync:", data.message); })
+    .catch(function(err) { console.warn("Agent1102 Sync failed:", err); });
 };
 
 var overState = (function() {
