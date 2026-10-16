@@ -1,4 +1,4 @@
-const BACKEND_URL = "https://agent-1102.onrender.com";
+const BACKEND_URL = "https://agent1102.onrender.com";
 
   // Elements
   const authScreen = document.getElementById("auth-screen");
