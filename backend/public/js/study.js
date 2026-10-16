@@ -74,7 +74,7 @@
       progress.textContent = `Question ${idx + 1} of ${order.length}`;
       fill.style.width = (idx / order.length * 100) + "%";
 
-      const pic = q.visual && window.Agent1102MathViz ? window.Agent1102MathViz.buildInline(q.visual) : null;
+      const pic = q.visual && window.agent1102MathViz ? window.agent1102MathViz.buildInline(q.visual) : null;
       if (pic) body.appendChild(pic); // graph / number line / diagram for this question
       body.appendChild(el("div", "quiz-question", q.question));
       const list = el("div", "quiz-options");
@@ -173,7 +173,7 @@
       card.setAttribute("aria-label", "Flashcard. Tap to flip.");
       const inner = el("div", "flashcard-inner");
       const front = el("div", "flashcard-face front");
-      const MV = window.Agent1102MathViz;
+      const MV = window.agent1102MathViz;
       const fPic = c.frontVisual && MV ? MV.buildInline(c.frontVisual) : null;
       const bPic = c.backVisual && MV ? MV.buildInline(c.backVisual) : null;
       front.append(el("div", "flashcard-tag", "Front"));
@@ -222,7 +222,7 @@
       const q = normalizeQuiz(JSON.parse(rawText));
       return `**${q.title}**\n\n` + q.questions.map((x, n) =>
         `${n + 1}. ${x.question}\n` + x.options.map((o, k) => `   ${String.fromCharCode(65 + k)}) ${o}`).join("\n") +
-        `\n   Answer: ${String.fromCharCode(65 + x.answer)}${x.explanation ? " - " + x.explanation : ""}`).map((t, i) => (x => x)(q.questions[i].visual && window.Agent1102MathViz ? "   " + window.Agent1102MathViz.toText(q.questions[i].visual) + "\n" + t : t)).join("\n\n") + "\n";
+        `\n   Answer: ${String.fromCharCode(65 + x.answer)}${x.explanation ? " - " + x.explanation : ""}`).map((t, i) => (x => x)(q.questions[i].visual && window.agent1102MathViz ? "   " + window.agent1102MathViz.toText(q.questions[i].visual) + "\n" + t : t)).join("\n\n") + "\n";
     } catch (_) { return null; }
   }
   function cardsToText(rawText) {
@@ -232,5 +232,5 @@
     } catch (_) { return null; }
   }
 
-  window.Agent1102Study = { buildQuiz, buildFlashcards, quizToText, cardsToText, LANGS: { quiz: "quiz", flashcards: "flashcards" } };
+  window.agent1102Study = { buildQuiz, buildFlashcards, quizToText, cardsToText, LANGS: { quiz: "quiz", flashcards: "flashcards" } };
 })();
