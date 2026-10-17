@@ -3,6 +3,7 @@ const BACKEND_URL = "https://agent1102.onrender.com";
   // Elements
   const authScreen = document.getElementById("auth-screen");
   const appEl = document.getElementById("app");
+  const authForm = document.getElementById("auth-form");
   const authName = document.getElementById("auth-name");
   const authPhone = document.getElementById("auth-phone");
   const authEmail = document.getElementById("auth-email");
