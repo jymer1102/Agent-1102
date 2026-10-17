@@ -39,6 +39,7 @@
     document.getElementById("profile-name").value = localStorage.getItem("agent1102_name") || "";
     document.getElementById("profile-email").value = "";
     document.getElementById("profile-password").value = "";
+    hidePasswords();
     profileMsg.textContent = "";
     profileModal.classList.add("open");
   });
