@@ -1,5 +1,21 @@
-// Token refresh
-  async function refreshToken() {
+// Saved login
+  // The session (access token + refresh token) lives in localStorage, so closing the tab or the
+  // browser doesn't sign you out. The access token only lasts about an hour; the refresh token
+  // quietly swaps it for a fresh one, so you only sign in again if you log out or the session is revoked.
+  function tokenSecondsLeft(token) {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      return payload.exp - Math.floor(Date.now() / 1000);
+    } catch { return 0; }
+  }
+
+  // One refresh at a time (the interval, tab-focus and page load can all ask at once)
+  let refreshInFlight = null;
+  function refreshToken() {
+    if (!refreshInFlight) refreshInFlight = doRefresh().finally(() => { refreshInFlight = null; });
+    return refreshInFlight;
+  }
+  async function doRefresh() {
     const storedRefresh = localStorage.getItem("agent1102_refresh_token");
     if (!storedRefresh) return;
     try {
@@ -7,15 +23,35 @@
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: storedRefresh }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (data.session) {
         userToken = data.session.access_token;
         localStorage.setItem("agent1102_token", userToken);
         localStorage.setItem("agent1102_refresh_token", data.session.refresh_token);
-      } else { showAuth(); }
+      } else if (res.status === 401) {
+        showAuth(); // the server says the saved login is no longer valid: sign in again
+      }
+      // anything else (server waking up, Supabase hiccup): stay signed in and try again later
     } catch { console.error("Token refresh failed"); }
   }
   setInterval(refreshToken, 10 * 60 * 1000);
+
+  // Background tabs throttle timers, so also top the token up when you come back to the tab
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && userToken && tokenSecondsLeft(userToken) < 300) refreshToken();
+  });
+
+  // Keep several open tabs in step: a refresh, sign-in or sign-out in one tab applies to the others
+  window.addEventListener("storage", (e) => {
+    if (e.key !== "agent1102_token") return;
+    if (e.newValue) {
+      const wasSignedOut = !userToken;
+      userToken = e.newValue;
+      if (wasSignedOut) showApp();
+    } else if (userToken) {
+      showAuth();
+    }
+  });
 
   // Auth
   document.getElementById("discord-btn").addEventListener("click", () => { window.location.href = `${BACKEND_URL}/auth/oauth/discord`; });
@@ -28,20 +64,15 @@
     authSubtitle.textContent = isSignUp ? "Create an account" : "Sign in to your account";
     authSubmit.textContent = isSignUp ? "Sign Up" : "Sign In";
     authToggle.textContent = isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up";
+    authPassword.autocomplete = isSignUp ? "new-password" : "current-password"; // tells the password manager whether to fill or suggest
     authError.textContent = "";
   });
 
-  // Pressing Enter in any sign in / sign up field submits the form
-  [authName, authPhone, authEmail, authPassword].forEach(input => {
-    input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" && !e.isComposing && !authSubmit.disabled) {
-        e.preventDefault();
-        authSubmit.click();
-      }
-    });
-  });
+  // Submitting the <form> (button or Enter key) signs in / up. Using a real form submit is what lets the
+  // browser offer to save the password and autofill it next time.
+  authForm.addEventListener("submit", (e) => { e.preventDefault(); if (!authSubmit.disabled) submitAuth(); });
 
-  authSubmit.addEventListener("click", async () => {
+  async function submitAuth() {
     const email = authEmail.value.trim();
     const password = authPassword.value.trim();
     const name = authName.value.trim();
@@ -69,15 +100,20 @@
       localStorage.setItem("agent1102_token", userToken);
       localStorage.setItem("agent1102_refresh_token", data.session.refresh_token);
       localStorage.setItem("agent1102_name", data.user?.user_metadata?.name || name || "");
+      hidePasswords();
       showApp();
     } catch (err) { authError.textContent = "DEBUG (network/JS error): " + (err && err.message ? err.message : String(err)); authSubmit.disabled = false; authSubmit.textContent = isSignUp ? "Sign Up" : "Sign In"; }
-  });
+  }
 
   async function showApp() {
+    // An old sign-in without a refresh token (e.g. from before OAuth saved one) can't renew itself once it expires
+    if (!localStorage.getItem("agent1102_refresh_token") && tokenSecondsLeft(userToken) <= 0) { showAuth(); return; }
     authScreen.style.display = "none";
     appEl.style.display = "flex";
-    await refreshToken();
+    if (tokenSecondsLeft(userToken) < 300) await refreshToken(); // only renew when it's about to expire
+    if (!userToken) return; // the refresh was rejected and showAuth() already ran
     loadProfile(); // fetches the saved profile picture; not awaited so the chat isn't held up
+    if (typeof loadEasterEggs === "function") loadEasterEggs(); // unlocked easter eggs follow the account; also not awaited
     if (history.length === 0) addGreeting();
     loadChats();
   }
@@ -88,7 +124,13 @@
     userToken = null;
     localStorage.removeItem("agent1102_token");
     localStorage.removeItem("agent1102_refresh_token");
+    authPassword.value = "";
+    authError.textContent = "";
+    authSubmit.disabled = false; authSubmit.textContent = isSignUp ? "Sign Up" : "Sign In"; // was left on "Loading..." after a successful sign-in
+    hidePasswords();
     clearAvatar();
+    // easter egg progress belongs to the account, so the next person on this browser starts clean
+    if (typeof resetEasterEggs === "function") resetEasterEggs();
   }
 
   // Wait for DOMContentLoaded so profile.js / chat.js (loaded after this file) are defined
