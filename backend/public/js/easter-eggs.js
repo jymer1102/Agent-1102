@@ -33,6 +33,7 @@
     localStorage.setItem("agent1102_easter_unlocked", "true");
     easterBtn.style.display = "flex";
     applyEaster();
+    pushEggs();
   }
 
   // Swap image when the device rotates or the window is resized across orientations
@@ -56,6 +57,69 @@
   function togglePacman() { window.open("/pacman/index.html", "_blank"); }
   pacmanBtn.addEventListener("click", togglePacman);
 
+  // --- Saving progress ---
+  // localStorage is just a cache so buttons appear instantly on load. The real copy lives on the account
+  // (GET/POST /easter-eggs in server.js), so unlocks follow you to any device or browser.
+  const EGG_STORAGE_KEYS = ["agent1102_easter", "agent1102_easter_unlocked", "agent1102_dino", "agent1102_pacman"];
+
+  function eggsSnapshot() {
+    return { background_unlocked: easterUnlocked, background_on: easterActive, dino: dinoUnlocked, pacman: pacmanUnlocked };
+  }
+
+  function saveEggsLocal() {
+    localStorage.setItem("agent1102_easter", easterActive);
+    localStorage.setItem("agent1102_easter_unlocked", easterUnlocked);
+    localStorage.setItem("agent1102_dino", dinoUnlocked);
+    localStorage.setItem("agent1102_pacman", pacmanUnlocked);
+  }
+
+  function applyEggUI() {
+    easterBtn.style.display = easterUnlocked ? "flex" : "none";
+    dinoBtn.style.display = dinoUnlocked ? "block" : "none";
+    pacmanBtn.style.display = pacmanUnlocked ? "block" : "none";
+    applyEaster();
+  }
+
+  // Send the current state to the account. The server only ever adds unlocks, never removes them.
+  async function pushEggs() {
+    if (!userToken) return;
+    try {
+      await fetch(`${BACKEND_URL}/easter-eggs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${userToken}` },
+        body: JSON.stringify({ eggs: eggsSnapshot() }),
+      });
+    } catch { /* offline: the local copy is kept and gets uploaded the next time the app loads */ }
+  }
+
+  // Called after sign-in / page load: merge what the account has with what this browser has.
+  async function loadEasterEggs() {
+    if (!userToken) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/easter-eggs`, { headers: { "Authorization": `Bearer ${userToken}` } });
+      if (!res.ok) return; // keep whatever is cached
+      const saved = (await res.json()).eggs || {};
+      const hasBackgroundPref = typeof saved.background_on === "boolean";
+      // anything found on this browser before progress was saved to accounts gets uploaded once
+      const needsUpload = (easterUnlocked && !saved.background_unlocked) || (dinoUnlocked && !saved.dino) ||
+                          (pacmanUnlocked && !saved.pacman) || (easterUnlocked && !hasBackgroundPref);
+      easterUnlocked = easterUnlocked || !!saved.background_unlocked || saved.background_on === true;
+      dinoUnlocked   = dinoUnlocked   || !!saved.dino;
+      pacmanUnlocked = pacmanUnlocked || !!saved.pacman;
+      if (hasBackgroundPref) easterActive = saved.background_on;
+      saveEggsLocal();
+      applyEggUI();
+      if (needsUpload) pushEggs();
+    } catch { /* network error: keep whatever is cached */ }
+  }
+
+  // On sign-out: progress belongs to the account, so clear it from this browser (it comes back at the next sign-in)
+  function resetEasterEggs() {
+    EGG_STORAGE_KEYS.forEach(k => localStorage.removeItem(k));
+    easterActive = false; easterUnlocked = false; dinoUnlocked = false; pacmanUnlocked = false;
+    applyEggUI();
+  }
+
   // Input easter egg detection
  input.addEventListener("input", () => {
   const val = input.value.trim().toLowerCase();
@@ -74,6 +138,7 @@
     dinoUnlocked = true; 
     localStorage.setItem("agent1102_dino","true"); 
     dinoBtn.style.display = "block"; 
+    pushEggs(); 
     showToast("🦖 Dino game unlocked! Click the T-Rex button anytime to play!"); 
   }
 
@@ -82,6 +147,7 @@
     pacmanUnlocked = true; 
     localStorage.setItem("agent1102_pacman","true"); 
     pacmanBtn.style.display = "block"; 
+    pushEggs(); 
     showToast('<i class="fa-solid fa-ghost"></i> Pac-Man game unlocked! Click the Pac-Man button anytime to play!'); 
   }
 
