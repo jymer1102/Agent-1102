@@ -8,3 +8,26 @@
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
+
+
+// Show / hide password: every <button class="pw-toggle"> sits next to its password <input>
+// inside a .pw-wrap. Delegated, so any password field added later works automatically.
+function setPasswordVisible(toggle, show) {
+  const field = toggle.parentElement.querySelector("input");
+  if (!field) return;
+  field.type = show ? "text" : "password";
+  const label = show ? "Hide password" : "Show password";
+  toggle.setAttribute("aria-pressed", String(show));
+  toggle.setAttribute("aria-label", label);
+  toggle.title = label;
+  toggle.innerHTML = '<i class="fa-solid ' + (show ? "fa-eye-slash" : "fa-eye") + '"></i>';
+}
+function hidePasswords() { document.querySelectorAll(".pw-toggle").forEach(t => setPasswordVisible(t, false)); }
+// keep the caret in the text box when the eye is clicked
+document.addEventListener("mousedown", (e) => { if (e.target.closest(".pw-toggle")) e.preventDefault(); });
+document.addEventListener("click", (e) => {
+  const toggle = e.target.closest(".pw-toggle");
+  if (!toggle) return;
+  const field = toggle.parentElement.querySelector("input");
+  if (field) setPasswordVisible(toggle, field.type === "password");
+});
